@@ -33,6 +33,7 @@ _POLL_ACCENT_COLORS = [0x5865F2, 0x57F287, 0xED4245, 0x9B59B6, 0xE67E22]
 
 DISCORD_API_BASE = "https://discord.com/api/v10"
 COMPONENTS_V2_FLAG = 32768
+GUILD_ID = 1447027458845970656
 
 active_polls: dict[str, "PollState"] = {}
 active_activity_checks: dict[str, "ActivityCheckState"] = {}
@@ -1231,6 +1232,109 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
             asyncio.create_task(_assign_streak_role(member, new_streak))
 
 
+_MEMBER_KEYWORDS = re.compile(
+    r"\b(members?|who is|who are|clan members?|list members?|how many members?|"
+    r"members? with role|players? in|people in|users? in|quienes? (son|estan|hay)|"
+    r"miembros?|cuantos? miembros?|lista de miembros?|jugadores? (del|en el) clan)\b",
+    re.IGNORECASE,
+)
+
+_ROLE_KEYWORDS = re.compile(
+    r"\b(roles?|what roles?|list roles?|que roles?|cuales? roles?|"
+    r"rank(s|es)?|tiers?|phases?)\b",
+    re.IGNORECASE,
+)
+
+_CHANNEL_KEYWORDS = re.compile(
+    r"\b(channels?|canales?|what channels?|list channels?|que canales?|"
+    r"cuales? canales?|donde (esta|hay)|where is)\b",
+    re.IGNORECASE,
+)
+
+_ROLE_FILTER_RE = re.compile(
+    r"(?:with role|con rol|rol)\s+[\"']?(.+?)[\"']?\s*(?:\?|$)",
+    re.IGNORECASE,
+)
+
+
+async def get_guild_members(role_id: int | None = None) -> list[dict]:
+    headers = {"Authorization": f"Bot {DISCORD_BOT_TOKEN}"}
+    members: list[dict] = []
+    after = 0
+    async with aiohttp.ClientSession() as session:
+        while True:
+            params = {"limit": 1000, "after": after}
+            async with session.get(
+                f"{DISCORD_API_BASE}/guilds/{GUILD_ID}/members",
+                headers=headers,
+                params=params,
+            ) as resp:
+                if resp.status != 200:
+                    break
+                batch = await resp.json()
+                if not batch:
+                    break
+                for m in batch:
+                    if role_id is None or str(role_id) in [str(r) for r in m.get("roles", [])]:
+                        nick = m.get("nick") or (m.get("user") or {}).get("global_name") or (m.get("user") or {}).get("username", "Unknown")
+                        members.append({"name": nick, "roles": m.get("roles", [])})
+                if len(batch) < 1000:
+                    break
+                after = int(batch[-1]["user"]["id"])
+    return members
+
+
+async def get_guild_roles() -> list[dict]:
+    headers = {"Authorization": f"Bot {DISCORD_BOT_TOKEN}"}
+    async with aiohttp.ClientSession() as session:
+        async with session.get(
+            f"{DISCORD_API_BASE}/guilds/{GUILD_ID}/roles",
+            headers=headers,
+        ) as resp:
+            if resp.status != 200:
+                return []
+            roles = await resp.json()
+            return [{"id": r["id"], "name": r["name"]} for r in roles if not r.get("managed")]
+
+
+async def get_guild_channels() -> list[dict]:
+    headers = {"Authorization": f"Bot {DISCORD_BOT_TOKEN}"}
+    async with aiohttp.ClientSession() as session:
+        async with session.get(
+            f"{DISCORD_API_BASE}/guilds/{GUILD_ID}/channels",
+            headers=headers,
+        ) as resp:
+            if resp.status != 200:
+                return []
+            channels = await resp.json()
+            type_names = {0: "text", 2: "voice", 4: "category", 5: "announcement", 15: "forum"}
+            return [
+                {"name": c["name"], "type": type_names.get(c["type"], "other")}
+                for c in channels
+                if c["type"] != 4
+            ]
+
+
+def _build_live_context(question: str, members: list[dict], roles: list[dict], channels: list[dict]) -> str | None:
+    parts: list[str] = []
+
+    if members:
+        names = [m["name"] for m in members]
+        parts.append(f"[LIVE DATA — Server members ({len(names)} total)]: {', '.join(names)}")
+
+    if roles:
+        role_names = [r["name"] for r in roles]
+        parts.append(f"[LIVE DATA — Server roles]: {', '.join(role_names)}")
+
+    if channels:
+        ch_list = [f"#{c['name']} ({c['type']})" for c in channels]
+        parts.append(f"[LIVE DATA — Server channels]: {', '.join(ch_list)}")
+
+    if not parts:
+        return None
+    return "\n".join(parts)
+
+
 async def handle_ask(message: discord.Message):
     question = message.content[len(">ask"):].strip()
 
@@ -1247,15 +1351,78 @@ async def handle_ask(message: discord.Message):
         history = history[-MAX_HISTORY_MESSAGES:]
         conversation_history[user_id] = history
 
+    wants_members = bool(_MEMBER_KEYWORDS.search(question))
+    wants_roles = bool(_ROLE_KEYWORDS.search(question))
+    wants_channels = bool(_CHANNEL_KEYWORDS.search(question))
+
+    live_members: list[dict] = []
+    live_roles: list[dict] = []
+    live_channels: list[dict] = []
+
     answer = None
     async with message.channel.typing():
+        if wants_members or wants_roles or wants_channels:
+            print(f"[ask] Live data fetch triggered — members={wants_members} roles={wants_roles} channels={wants_channels}")
+            try:
+                if wants_members:
+                    role_match = _ROLE_FILTER_RE.search(question)
+                    if role_match:
+                        raw_roles = await get_guild_roles()
+                        role_name_query = role_match.group(1).strip().lower()
+                        matched_role = next(
+                            (r for r in raw_roles if role_name_query in r["name"].lower()), None
+                        )
+                        role_filter_id = int(matched_role["id"]) if matched_role else None
+                        live_members = await get_guild_members(role_id=role_filter_id)
+                        if wants_roles:
+                            live_roles = raw_roles
+                    else:
+                        tasks_to_run = [get_guild_members()]
+                        if wants_roles:
+                            tasks_to_run.append(get_guild_roles())
+                        if wants_channels:
+                            tasks_to_run.append(get_guild_channels())
+                        results = await asyncio.gather(*tasks_to_run, return_exceptions=True)
+                        live_members = results[0] if not isinstance(results[0], Exception) else []
+                        idx = 1
+                        if wants_roles:
+                            live_roles = results[idx] if not isinstance(results[idx], Exception) else []
+                            idx += 1
+                        if wants_channels:
+                            live_channels = results[idx] if not isinstance(results[idx], Exception) else []
+                else:
+                    tasks_to_run = []
+                    if wants_roles:
+                        tasks_to_run.append(get_guild_roles())
+                    if wants_channels:
+                        tasks_to_run.append(get_guild_channels())
+                    results = await asyncio.gather(*tasks_to_run, return_exceptions=True)
+                    idx = 0
+                    if wants_roles:
+                        live_roles = results[idx] if not isinstance(results[idx], Exception) else []
+                        idx += 1
+                    if wants_channels:
+                        live_channels = results[idx] if not isinstance(results[idx], Exception) else []
+            except Exception as e:
+                print(f"[ask] Live data fetch error: {e}")
+
+        live_context = _build_live_context(question, live_members, live_roles, live_channels)
+
+        system_with_context = SYSTEM_PROMPT
+        if live_context:
+            system_with_context = (
+                SYSTEM_PROMPT
+                + "\n\n--- REAL-TIME SERVER DATA (use this to answer accurately) ---\n"
+                + live_context
+            )
+
         current_history = list(history)
 
         for model in FALLBACK_MODELS:
             try:
                 print(f"[ask] Trying model: {model}")
                 messages_payload = [
-                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "system", "content": system_with_context},
                     *current_history,
                 ]
                 response = await groq_client.chat.completions.create(
@@ -1274,7 +1441,7 @@ async def handle_ask(message: discord.Message):
                         current_history = current_history[-(len(current_history) // 2):]
                         try:
                             messages_payload = [
-                                {"role": "system", "content": SYSTEM_PROMPT},
+                                {"role": "system", "content": system_with_context},
                                 *current_history,
                             ]
                             response = await groq_client.chat.completions.create(
