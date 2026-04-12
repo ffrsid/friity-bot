@@ -179,12 +179,17 @@ MAX_HISTORY_MESSAGES = 20
 FALLBACK_MODELS = [
     "llama-3.3-70b-versatile",
     "llama-3.1-70b-versatile",
-    "gemma2-9b-it",
     "llama-3.1-8b-instant",
+    "llama3-70b-8192",
+    "llama3-8b-8192",
+    "gemma2-9b-it",
+    "gemma-7b-it",
+    "mixtral-8x7b-32768",
 ]
 
-_ASK_MAX_RETRIES = 3
-_ASK_RETRY_DELAY = 5
+_ASK_MAX_CYCLES = 3
+_ASK_MODEL_429_DELAY = 5
+_ASK_CYCLE_DELAY = 10
 
 roblox_links: dict[int, str] = {}
 
@@ -1449,10 +1454,10 @@ async def handle_ask(message: discord.Message):
 
         current_history = list(history)
 
-        for attempt in range(_ASK_MAX_RETRIES):
-            if attempt > 0:
-                print(f"[ask] All models rate-limited — waiting {_ASK_RETRY_DELAY}s (retry {attempt}/{_ASK_MAX_RETRIES - 1})...")
-                await asyncio.sleep(_ASK_RETRY_DELAY)
+        for cycle in range(_ASK_MAX_CYCLES):
+            if cycle > 0:
+                print(f"[ask] All models rate-limited — waiting {_ASK_CYCLE_DELAY}s before cycle {cycle + 1}/{_ASK_MAX_CYCLES}...")
+                await asyncio.sleep(_ASK_CYCLE_DELAY)
 
             all_rate_limited = True
 
@@ -1495,7 +1500,8 @@ async def handle_ask(message: discord.Message):
                         continue
 
                     elif status == 429:
-                        print(f"[ask] {model} → 429 (rate limit), trying next model...")
+                        print(f"[ask] {model} → 429 (rate limit), waiting {_ASK_MODEL_429_DELAY}s then trying next model...")
+                        await asyncio.sleep(_ASK_MODEL_429_DELAY)
                         continue
 
                     else:
