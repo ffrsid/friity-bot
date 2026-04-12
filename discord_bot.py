@@ -5,12 +5,12 @@ import json
 import random
 import asyncio
 import pathlib
-import threading
+
 import discord
 import aiohttp
 from groq import AsyncGroq
 from datetime import datetime, timezone
-from flask import Flask
+
 from collections import defaultdict
 
 DISCORD_BOT_TOKEN = os.environ["DISCORD_BOT_TOKEN"]
@@ -1909,16 +1909,4 @@ async def handle_tier(message: discord.Message):
     )
 
     await message.channel.send(embed=embed)
-
-
-flask_app = Flask(__name__)
-
-@flask_app.route("/")
-def alive():
-    return "I am alive"
-
-def run_flask():
-    flask_app.run(host="0.0.0.0", port=8099)
-
-threading.Thread(target=run_flask, daemon=True).start()
 client.run(DISCORD_BOT_TOKEN)
