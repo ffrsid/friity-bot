@@ -179,8 +179,12 @@ MAX_HISTORY_MESSAGES = 20
 FALLBACK_MODELS = [
     "llama-3.3-70b-versatile",
     "llama-3.1-70b-versatile",
+    "gemma2-9b-it",
     "llama-3.1-8b-instant",
 ]
+
+_ASK_MAX_RETRIES = 3
+_ASK_RETRY_DELAY = 5
 
 roblox_links: dict[int, str] = {}
 
@@ -1445,49 +1449,62 @@ async def handle_ask(message: discord.Message):
 
         current_history = list(history)
 
-        for model in FALLBACK_MODELS:
-            try:
-                print(f"[ask] Trying model: {model}")
-                messages_payload = [
-                    {"role": "system", "content": system_with_context},
-                    *current_history,
-                ]
-                response = await groq_client.chat.completions.create(
-                    model=model,
-                    messages=messages_payload,
-                )
-                answer = response.choices[0].message.content
+        for attempt in range(_ASK_MAX_RETRIES):
+            if attempt > 0:
+                print(f"[ask] All models rate-limited — waiting {_ASK_RETRY_DELAY}s (retry {attempt}/{_ASK_MAX_RETRIES - 1})...")
+                await asyncio.sleep(_ASK_RETRY_DELAY)
+
+            all_rate_limited = True
+
+            for model in FALLBACK_MODELS:
+                try:
+                    print(f"[ask] Trying model: {model}")
+                    messages_payload = [
+                        {"role": "system", "content": system_with_context},
+                        *current_history,
+                    ]
+                    response = await groq_client.chat.completions.create(
+                        model=model,
+                        messages=messages_payload,
+                    )
+                    answer = response.choices[0].message.content
+                    all_rate_limited = False
+                    break
+
+                except Exception as e:
+                    status = getattr(e, "status_code", None)
+
+                    if status == 413:
+                        all_rate_limited = False
+                        print(f"[ask] {model} → 413 (too large), trimming history...")
+                        if len(current_history) > 2:
+                            current_history = current_history[-(len(current_history) // 2):]
+                            try:
+                                messages_payload = [
+                                    {"role": "system", "content": system_with_context},
+                                    *current_history,
+                                ]
+                                response = await groq_client.chat.completions.create(
+                                    model=model,
+                                    messages=messages_payload,
+                                )
+                                answer = response.choices[0].message.content
+                                break
+                            except Exception:
+                                pass
+                        continue
+
+                    elif status == 429:
+                        print(f"[ask] {model} → 429 (rate limit), trying next model...")
+                        continue
+
+                    else:
+                        all_rate_limited = False
+                        print(f"[ask] {model} failed: {e}")
+                        continue
+
+            if answer is not None or not all_rate_limited:
                 break
-
-            except Exception as e:
-                status = getattr(e, "status_code", None)
-
-                if status == 413:
-                    print(f"[ask] {model} → 413 (too large), trimming history...")
-                    if len(current_history) > 2:
-                        current_history = current_history[-(len(current_history) // 2):]
-                        try:
-                            messages_payload = [
-                                {"role": "system", "content": system_with_context},
-                                *current_history,
-                            ]
-                            response = await groq_client.chat.completions.create(
-                                model=model,
-                                messages=messages_payload,
-                            )
-                            answer = response.choices[0].message.content
-                            break
-                        except Exception:
-                            pass
-                    continue
-
-                elif status == 429:
-                    print(f"[ask] {model} → 429 (rate limit), trying next model...")
-                    continue
-
-                else:
-                    print(f"[ask] {model} failed: {e}")
-                    continue
 
     if answer is None:
         await message.channel.send(
