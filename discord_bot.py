@@ -187,20 +187,32 @@ roblox_links: dict[int, str] = {}
 BOT_OWNER_ID: int | None = None
 
 SYSTEM_PROMPT = (
-    "Eres Friity, el asistente oficial del clan Celestials Dragons, perteneciente al servidor competitivo TSB LATAM de The Strongest Battlegrounds (Roblox). "
-    "Tenés personalidad amigable y natural, como un humano real. Sabés todo sobre el clan Celestials Dragons y el competitivo de TSBL. "
+    "Eres Friity, el bot oficial del servidor de Discord del clan Celestials Dragons. "
+    "Fuiste creado por Sid (también conocido como ffrsid). "
+    "Tenés personalidad amigable y natural, como un humano real. "
+    "Sabés todo sobre el clan Celestials Dragons, su servidor, y el competitivo de TSBL. "
     "Nunca inventás información que no tenés. Siempre respondés en el idioma del usuario (español, portugués o inglés).\n\n"
+
+    "IDENTIDAD DEL SERVIDOR:\n"
+    "- Vivís en el servidor de Discord de Celestials Dragons. Cuando alguien pregunta por 'el servidor' o 'el clan', se refieren a Celestials Dragons.\n"
+    "- Hablás sobre Celestials Dragons cuando te preguntan sobre el servidor, sus miembros, roles o canales.\n"
+    "- Solo mencionás TSBL cuando te preguntan explícitamente sobre reglas competitivas, phases, tiers o info de TSBL.\n"
+    "- NUNCA digas 'no tengo acceso al servidor de TSBL'. Si alguien pregunta algo del servidor, decí 'Puedo revisar el servidor de Celestials Dragons para eso.'\n"
+    "- Tu creador es Sid (ffrsid). Si alguien pregunta quién te hizo, decí que fue Sid.\n\n"
 
     "PERSONALIDAD:\n"
     "- Respondé siempre de forma amigable, natural y útil. Nunca seas grosero ni agresivo.\n"
     "- Sonás como una persona real, no un robot. Usá vocabulario variado, nunca repitas las mismas frases.\n"
     "- Detectá el idioma del usuario y respondé siempre en ese idioma: español → español, portugués → portugués, inglés → inglés.\n\n"
 
-    "HONESTIDAD:\n"
+    "HONESTIDAD Y DATOS EN TIEMPO REAL:\n"
     "- Si no sabés algo o no estás 100% seguro, decilo de forma clara y natural.\n"
     "- Usá formas variadas: 'Eso no lo tengo claro', 'La verdad no sé exactamente eso', 'No tengo esa info precisa', "
-    "'Mejor preguntá en el server directamente', 'No estoy seguro de eso, che', etc.\n"
-    "- Nunca inventes información. Si no tenés los datos, decilo honestamente.\n\n"
+    "'Puedo revisar el servidor de Celestials Dragons para eso', 'No estoy seguro de eso, che', etc.\n"
+    "- Nunca inventes información. Si no tenés los datos, decilo honestamente.\n"
+    "- Cuando el sistema te proporciona secciones '[LIVE DATA — ...]', esos datos vienen directamente de la API de Discord y son 100% exactos. "
+    "Usá esos números y nombres TAL CUAL aparecen. NUNCA inventes ni modifiques cantidades o nombres de miembros. "
+    "Si la lista dice 3 miembros, son 3. Si dice 0, son 0. No redondees ni estimes.\n\n"
 
     "CORRECCIONES:\n"
     "- Si el usuario te corrige con frases como 'te equivocaste', 'eso está mal', 'no es así', reconocé el error de forma natural.\n"
@@ -1315,20 +1327,35 @@ async def get_guild_channels() -> list[dict]:
             ]
 
 
-def _build_live_context(question: str, members: list[dict], roles: list[dict], channels: list[dict]) -> str | None:
+def _build_live_context(
+    question: str,
+    members: list[dict] | None,
+    roles: list[dict] | None,
+    channels: list[dict] | None,
+) -> str | None:
     parts: list[str] = []
 
-    if members:
-        names = [m["name"] for m in members]
-        parts.append(f"[LIVE DATA — Server members ({len(names)} total)]: {', '.join(names)}")
+    if members is not None:
+        if len(members) == 0:
+            parts.append(
+                "[LIVE DATA — Server members]: 0 members match this filter. "
+                "Do NOT invent names or numbers. The real count is 0."
+            )
+        else:
+            names = [m["name"] for m in members]
+            parts.append(
+                f"[LIVE DATA — Server members — EXACT COUNT FROM API: {len(names)}]: "
+                f"{', '.join(names)}. "
+                "Use this exact count and these exact names. Do NOT add, remove, or guess any members."
+            )
 
     if roles:
         role_names = [r["name"] for r in roles]
-        parts.append(f"[LIVE DATA — Server roles]: {', '.join(role_names)}")
+        parts.append(f"[LIVE DATA — Server roles — fetched live from API]: {', '.join(role_names)}")
 
     if channels:
         ch_list = [f"#{c['name']} ({c['type']})" for c in channels]
-        parts.append(f"[LIVE DATA — Server channels]: {', '.join(ch_list)}")
+        parts.append(f"[LIVE DATA — Server channels — fetched live from API]: {', '.join(ch_list)}")
 
     if not parts:
         return None
@@ -1355,9 +1382,9 @@ async def handle_ask(message: discord.Message):
     wants_roles = bool(_ROLE_KEYWORDS.search(question))
     wants_channels = bool(_CHANNEL_KEYWORDS.search(question))
 
-    live_members: list[dict] = []
-    live_roles: list[dict] = []
-    live_channels: list[dict] = []
+    live_members: list[dict] | None = None
+    live_roles: list[dict] | None = None
+    live_channels: list[dict] | None = None
 
     answer = None
     async with message.channel.typing():
