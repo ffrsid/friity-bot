@@ -1934,15 +1934,9 @@ async def handle_tier(message: discord.Message):
 
     await message.channel.send(embed=embed)
 
+if __name__ == "__main__":
 
-flask_app = Flask(__name__)
 
-@flask_app.route("/")
-def alive():
-    return "I am alive"
 
-def run_flask():
-    flask_app.run(host="0.0.0.0", port=8099)
 
-threading.Thread(target=run_flask, daemon=True).start()
 client.run(DISCORD_BOT_TOKEN)
