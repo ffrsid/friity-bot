@@ -10,7 +10,6 @@ import discord
 import aiohttp
 from groq import AsyncGroq
 from datetime import datetime, timezone
-from flask import Flask
 from collections import defaultdict
 
 DISCORD_BOT_TOKEN = os.environ["DISCORD_BOT_TOKEN"]
