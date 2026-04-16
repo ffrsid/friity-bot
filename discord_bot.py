@@ -1934,9 +1934,7 @@ async def handle_tier(message: discord.Message):
 
     await message.channel.send(embed=embed)
 
-if __name__ == "__main__":
+    if __name__ == "__main__":
+    
+    client.run(DISCORD_BOT_TOKEN)
 
-
-
-
-client.run(DISCORD_BOT_TOKEN)
