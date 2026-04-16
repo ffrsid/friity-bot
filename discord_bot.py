@@ -5,12 +5,12 @@ import json
 import random
 import asyncio
 import pathlib
-
+import threading
 import discord
 import aiohttp
 from groq import AsyncGroq
 from datetime import datetime, timezone
-
+from flask import Flask
 from collections import defaultdict
 
 DISCORD_BOT_TOKEN = os.environ["DISCORD_BOT_TOKEN"]
@@ -20,6 +20,7 @@ groq_client = AsyncGroq(api_key=GROQ_API_KEY)
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True
 
 client = discord.Client(intents=intents)
 
@@ -409,6 +410,15 @@ SYSTEM_PROMPT = (
 
     "SOBRE EL BOT:\n"
     "Friity es asistente de TSBL (TSB LATAM). TSBCC significa 'TSB Clanning Community' y es una organización competitiva separada e independiente de TSBL, no una región ni un país. Si alguien pregunta sobre TSBCC, TSBSA, TSBEU, TSBNR, TSBASIA u otras organizaciones, aclarar que Friity solo tiene información sobre TSBL y no puede hablar con detalle de otras organizaciones, aunque sí puede mencionar que existen y que TSBCC es la Clanning Community.\n\n"
+
+    "COMANDOS DEL BOT FRIITY:\n"
+    "- >ask <pregunta>: Le hacés una pregunta a Friity y responde con info del clan o del competitivo de TSBL.\n"
+    "- >tier <0-5|app> <low|mid|high> <weak|stable|strong> [@user] <sp|mi|da|cl|la> [note: texto]: Asigna roles de tier a un usuario. Solo lo pueden usar quienes tengan el rol TRYOUTER.\n"
+    "- >poll <pregunta> | <opcion1> | <opcion2> [vote: N] [time: N unit]: Crea una encuesta. Solo en el canal de polls. Solo rol PollsEvent.\n"
+    "- >info: Muestra tu perfil vinculado de Roblox con tu tier, región y streak.\n"
+    "- >setuprules: Manda el embed de rules al canal de rules.\n"
+    "- ?activity check <texto> @everyone: Lanza un activity check. Solo el owner del bot puede usarlo.\n"
+    "Cuando alguien pregunta sobre estos comandos, explicá exactamente cómo funcionan según esta descripción. No inventes sintaxis ni funciones que no existen.\n\n"
 
     "TRIALS P1:\n"
     "Son sesiones de evaluación donde un tryouter testea a un jugador para determinar si merece una Phase 1.\n"
@@ -1370,6 +1380,13 @@ def _build_live_context(
 async def handle_ask(message: discord.Message):
     question = message.content[len(">ask"):].strip()
 
+    reply_target: discord.Member | discord.User | None = None
+    if message.mentions:
+        reply_target = message.mentions[0]
+        for pattern in (f"<@!{reply_target.id}>", f"<@{reply_target.id}>"):
+            question = question.replace(pattern, "")
+        question = question.strip()
+
     if not question:
         await message.channel.send("Please provide a question after `>ask`.")
         return
@@ -1520,12 +1537,19 @@ async def handle_ask(message: discord.Message):
     if len(history) > MAX_HISTORY_MESSAGES:
         conversation_history[user_id] = history[-MAX_HISTORY_MESSAGES:]
 
-    if len(answer) > 2000:
-        chunks = [answer[i:i + 2000] for i in range(0, len(answer), 2000)]
-        for chunk in chunks:
-            await message.channel.send(chunk)
+    prefix = f"<@{reply_target.id}> " if reply_target else ""
+
+    if len(prefix) + len(answer) > 2000:
+        first = True
+        remaining = answer
+        while remaining:
+            budget = 2000 - (len(prefix) if first else 0)
+            chunk = remaining[:budget]
+            remaining = remaining[budget:]
+            await message.channel.send((prefix if first else "") + chunk)
+            first = False
     else:
-        await message.channel.send(answer)
+        await message.channel.send(prefix + answer)
 
 
 _POLL_TIME_UNITS: dict[str, int] = {
@@ -1909,4 +1933,16 @@ async def handle_tier(message: discord.Message):
     )
 
     await message.channel.send(embed=embed)
+
+
+flask_app = Flask(__name__)
+
+@flask_app.route("/")
+def alive():
+    return "I am alive"
+
+def run_flask():
+    flask_app.run(host="0.0.0.0", port=8099)
+
+threading.Thread(target=run_flask, daemon=True).start()
 client.run(DISCORD_BOT_TOKEN)
