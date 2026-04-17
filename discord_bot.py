@@ -1282,6 +1282,183 @@ _ROLE_FILTER_RE = re.compile(
     re.IGNORECASE,
 )
 
+_CHANNEL_HISTORY_KEYWORDS = re.compile(
+    r"\b(que dijo|que escribio|que escribió|que puso|que coment(o|ó)|"
+    r"dijo|escribio|escribió|what did|who said|someone said|"
+    r"alguien dijo|ultimos? mensajes?|últimos? mensajes?|"
+    r"mensajes? recientes?|recent messages?|chat reciente|"
+    r"que hablaron|de que hablan|de qué hablan)\b",
+    re.IGNORECASE,
+)
+
+_WEB_SEARCH_KEYWORDS = re.compile(
+    r"\b(busca(?:r|lo|me)?|googlea(?:r|lo)?|google|search|"
+    r"lo podrias? buscar|lo podés buscar|podrias? buscar|podés buscar|"
+    r"que significa|qué significa|significado de|"
+    r"que es (?:el |la )?meme|qué es (?:el |la )?meme|que es fomo|qué es fomo|"
+    r"en (?:el |la )?internet|en google|en la web|en tik ?tok)\b",
+    re.IGNORECASE,
+)
+
+_TSB_KEYWORDS = re.compile(
+    r"\b(tsb|tsbl|tsbcc|phase|phases|tier|tiers|glad|glads|gladiador|"
+    r"tryout|tryouts|trial|trials|vouch|vouchs|clan|clans|server|servidor|"
+    r"celestial|celestials|dragon|dragons|friity|saitama|garou|metal bat|"
+    r"leaderboard|top ?10|top ?20|top ?30|boomy|ayato|competitive|competitivo|"
+    r"warn|warns|blacklist|ban|sancion|sanción|sancoes|"
+    r"owner|owners|staff|tryouter|moderator|moderador|skill lookout|"
+    r"voucher|applicant|regla|reglas|rule|rules|sanction|sanciones|"
+    r"punishment|punishments|hunter|lordheaven|aba|tab glitch|"
+    r"bullet dash|passive strike|sneaking|1v1|ft3|ft5|ft10|"
+    r"activity check|streak|streaks|polls?|encuesta|anncs?|anuncios?|"
+    r"roblox|discord|canal|channel|miembro|miembros|member|members|"
+    r"jugador|jugadores|player|players|rol|roles|role|sid|ffrsid|bot)\b",
+    re.IGNORECASE,
+)
+
+
+async def fetch_recent_channel_messages(
+    channel: discord.abc.Messageable,
+    limit: int = 80,
+    target_user_id: int | None = None,
+    target_name: str | None = None,
+    exclude_message_id: int | None = None,
+) -> list[dict]:
+    results: list[dict] = []
+    try:
+        async for msg in channel.history(limit=limit):
+            if exclude_message_id and msg.id == exclude_message_id:
+                continue
+            if msg.author.bot:
+                continue
+            if not msg.content:
+                continue
+            if msg.content.startswith(">") or msg.content.lower().startswith("?activity"):
+                continue
+            results.append({
+                "author_id": msg.author.id,
+                "author": getattr(msg.author, "display_name", None) or msg.author.name,
+                "username": msg.author.name,
+                "content": msg.content,
+                "created_at": msg.created_at.isoformat(timespec="seconds"),
+            })
+    except Exception as e:
+        print(f"[ask] channel history fetch failed: {e}")
+        return []
+    results.reverse()
+
+    if target_user_id is not None:
+        results = [m for m in results if m["author_id"] == target_user_id]
+    elif target_name:
+        lname = target_name.lower().lstrip("@").strip()
+        results = [
+            m for m in results
+            if lname in m["author"].lower() or lname in m["username"].lower()
+        ]
+
+    return results
+
+
+_WEB_HTML_TAG_RE = re.compile(r"<[^>]+>")
+_WEB_WS_RE = re.compile(r"\s+")
+_WEB_RESULT_RE = re.compile(
+    r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>'
+    r'.*?<a[^>]+class="result__snippet"[^>]*>(.*?)</a>',
+    re.DOTALL | re.IGNORECASE,
+)
+
+
+def _strip_html(text: str) -> str:
+    import html as _html
+    text = _WEB_HTML_TAG_RE.sub("", text)
+    text = _html.unescape(text)
+    text = _WEB_WS_RE.sub(" ", text).strip()
+    return text
+
+
+async def web_search(query: str, max_results: int = 5) -> list[dict]:
+    query = (query or "").strip()
+    if not query:
+        return []
+
+    results: list[dict] = []
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            params = {"q": query, "format": "json", "no_html": "1", "skip_disambig": "1"}
+            async with session.get(
+                "https://api.duckduckgo.com/",
+                params=params,
+                timeout=aiohttp.ClientTimeout(total=8),
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json(content_type=None)
+                    abstract = (data.get("AbstractText") or "").strip()
+                    heading = (data.get("Heading") or "").strip()
+                    abstract_url = data.get("AbstractURL") or ""
+                    if abstract:
+                        results.append({
+                            "title": heading or query,
+                            "url": abstract_url,
+                            "snippet": abstract,
+                        })
+                    for related in (data.get("RelatedTopics") or []):
+                        if len(results) >= max_results:
+                            break
+                        if isinstance(related, dict):
+                            text = (related.get("Text") or "").strip()
+                            if text:
+                                results.append({
+                                    "title": text[:120],
+                                    "url": related.get("FirstURL", ""),
+                                    "snippet": text,
+                                })
+    except Exception as e:
+        print(f"[web_search] instant answer failed: {e}")
+
+    if len(results) < max_results:
+        try:
+            headers = {
+                "User-Agent": (
+                    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+                )
+            }
+            async with aiohttp.ClientSession(headers=headers) as session:
+                async with session.get(
+                    "https://html.duckduckgo.com/html/",
+                    params={"q": query},
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as resp:
+                    if resp.status == 200:
+                        html_text = await resp.text()
+                        for match in _WEB_RESULT_RE.finditer(html_text):
+                            url = match.group(1)
+                            title = _strip_html(match.group(2))
+                            snippet = _strip_html(match.group(3))
+                            if url.startswith("//duckduckgo.com/l/?uddg=") or "duckduckgo.com/l/?uddg=" in url:
+                                from urllib.parse import unquote, parse_qs, urlparse
+                                parsed = urlparse(url if url.startswith("http") else "https:" + url)
+                                qs = parse_qs(parsed.query)
+                                if "uddg" in qs:
+                                    url = unquote(qs["uddg"][0])
+                            if title and snippet:
+                                results.append({"title": title, "url": url, "snippet": snippet})
+                            if len(results) >= max_results:
+                                break
+        except Exception as e:
+            print(f"[web_search] html search failed: {e}")
+
+    seen_urls = set()
+    deduped: list[dict] = []
+    for r in results:
+        key = r.get("url") or r.get("snippet")
+        if key in seen_urls:
+            continue
+        seen_urls.add(key)
+        deduped.append(r)
+    return deduped[:max_results]
+
 
 async def get_guild_members(role_id: int | None = None) -> list[dict]:
     headers = {"Authorization": f"Bot {DISCORD_BOT_TOKEN}"}
@@ -1346,19 +1523,39 @@ def _build_live_context(
     members: list[dict] | None,
     roles: list[dict] | None,
     channels: list[dict] | None,
+    author_info: dict | None = None,
+    channel_messages: list[dict] | None = None,
+    web_results: list[dict] | None = None,
+    detected_role_name: str | None = None,
 ) -> str | None:
     parts: list[str] = []
 
+    if author_info:
+        roles_text = ", ".join(author_info.get("roles") or []) or "sin roles destacados"
+        parts.append(
+            "[WHO IS ASKING — data from Discord]: "
+            f"display_name={author_info['display_name']}, "
+            f"username={author_info['username']}, "
+            f"id={author_info['id']}, "
+            f"roles=[{roles_text}]. "
+            "Cuando el usuario pregunte 'quien soy', 'who am I', 'quien es este', etc., "
+            "respondé usando el display_name y/o los roles que aparecen acá. "
+            "No inventes datos ni confundas al usuario con otro. Usa estos valores EXACTOS."
+        )
+
     if members is not None:
+        header = "[LIVE DATA — Server members"
+        if detected_role_name:
+            header += f" filtrados por rol '{detected_role_name}'"
         if len(members) == 0:
             parts.append(
-                "[LIVE DATA — Server members]: 0 members match this filter. "
-                "Do NOT invent names or numbers. The real count is 0."
+                f"{header}]: 0 miembros coinciden con este filtro. "
+                "NO inventes nombres ni numeros. El conteo real es 0."
             )
         else:
             names = [m["name"] for m in members]
             parts.append(
-                f"[LIVE DATA — Server members — EXACT COUNT FROM API: {len(names)}]: "
+                f"{header} — EXACT COUNT FROM API: {len(names)}]: "
                 f"{', '.join(names)}. "
                 "Use this exact count and these exact names. Do NOT add, remove, or guess any members."
             )
@@ -1371,9 +1568,38 @@ def _build_live_context(
         ch_list = [f"#{c['name']} ({c['type']})" for c in channels]
         parts.append(f"[LIVE DATA — Server channels — fetched live from API]: {', '.join(ch_list)}")
 
+    if channel_messages:
+        recent = channel_messages[-40:]
+        lines = [
+            f"- [{m['created_at']}] {m['author']} (@{m['username']}): {m['content']}"
+            for m in recent
+        ]
+        parts.append(
+            "[LIVE DATA — Mensajes recientes del canal actual, en orden cronologico (mas viejo primero)]:\n"
+            + "\n".join(lines)
+            + "\nUsa SOLO estos mensajes para responder 'que dijo X' o preguntas sobre el chat. "
+            "Si el usuario mencionado no aparece aca, decile que no lo encontraste en los mensajes recientes. "
+            "No inventes ni parafrasees; cita tal cual."
+        )
+
+    if web_results:
+        lines = []
+        for r in web_results[:5]:
+            title = r.get("title") or ""
+            snippet = r.get("snippet") or ""
+            url = r.get("url") or ""
+            lines.append(f"- {title}\n  {snippet}\n  fuente: {url}")
+        parts.append(
+            "[LIVE DATA — Resultados de busqueda web (DuckDuckGo)]:\n"
+            + "\n".join(lines)
+            + "\nUsa esta info para responder preguntas generales que NO sean del clan/servidor/TSB. "
+            "Resume en el idioma del usuario. Si mencionas un dato especifico, cita brevemente la fuente (URL). "
+            "Si los resultados no contestan la pregunta, decilo honestamente."
+        )
+
     if not parts:
         return None
-    return "\n".join(parts)
+    return "\n\n".join(parts)
 
 
 async def handle_ask(message: discord.Message):
@@ -1399,62 +1625,132 @@ async def handle_ask(message: discord.Message):
         history = history[-MAX_HISTORY_MESSAGES:]
         conversation_history[user_id] = history
 
+    author_info = {
+        "id": message.author.id,
+        "username": message.author.name,
+        "display_name": getattr(message.author, "display_name", None) or message.author.name,
+        "roles": [
+            r.name
+            for r in getattr(message.author, "roles", [])
+            if r.name and r.name != "@everyone"
+        ],
+    }
+
     wants_members = bool(_MEMBER_KEYWORDS.search(question))
     wants_roles = bool(_ROLE_KEYWORDS.search(question))
     wants_channels = bool(_CHANNEL_KEYWORDS.search(question))
+    wants_channel_history = bool(_CHANNEL_HISTORY_KEYWORDS.search(question)) or bool(reply_target)
+    wants_web_explicit = bool(_WEB_SEARCH_KEYWORDS.search(question))
+    has_tsb_keyword = bool(_TSB_KEYWORDS.search(question))
+    # Buscar en la web si el usuario lo pidio explicitamente, o si la pregunta
+    # no parece ser sobre el servidor/clan/TSB y tampoco es sobre el chat reciente.
+    wants_web = wants_web_explicit or (
+        not has_tsb_keyword
+        and not wants_channel_history
+        and not wants_members
+        and not wants_roles
+        and not wants_channels
+    )
 
     live_members: list[dict] | None = None
     live_roles: list[dict] | None = None
     live_channels: list[dict] | None = None
+    channel_messages: list[dict] | None = None
+    web_results: list[dict] | None = None
+    detected_role_name: str | None = None
 
     answer = None
     async with message.channel.typing():
-        if wants_members or wants_roles or wants_channels:
-            print(f"[ask] Live data fetch triggered — members={wants_members} roles={wants_roles} channels={wants_channels}")
+        # -------- Contexto: mensajes recientes del canal --------
+        if wants_channel_history:
             try:
+                target_user_id = reply_target.id if reply_target else None
+                target_name: str | None = None
+                if target_user_id is None:
+                    name_match = re.search(
+                        r"(?:que (?:dijo|escribio|escribió|puso|coment(?:o|ó))|what did)\s+@?([\w\-_.áéíóúñÁÉÍÓÚÑ]+)",
+                        question,
+                        re.IGNORECASE,
+                    )
+                    if name_match:
+                        target_name = name_match.group(1).strip()
+                channel_messages = await fetch_recent_channel_messages(
+                    message.channel,
+                    limit=80,
+                    target_user_id=target_user_id,
+                    target_name=target_name,
+                    exclude_message_id=message.id,
+                )
+                print(
+                    f"[ask] channel history: target_id={target_user_id} "
+                    f"target_name={target_name} got {len(channel_messages)} msgs"
+                )
+            except Exception as e:
+                print(f"[ask] channel history error: {e}")
+
+        # -------- Contexto: miembros/roles/canales del server --------
+        if wants_members or wants_roles or wants_channels:
+            print(
+                f"[ask] Live data fetch triggered — "
+                f"members={wants_members} roles={wants_roles} channels={wants_channels}"
+            )
+            try:
+                raw_roles = await get_guild_roles()
+                if wants_roles:
+                    live_roles = raw_roles
+
                 if wants_members:
+                    role_filter_id: int | None = None
                     role_match = _ROLE_FILTER_RE.search(question)
                     if role_match:
-                        raw_roles = await get_guild_roles()
                         role_name_query = role_match.group(1).strip().lower()
                         matched_role = next(
-                            (r for r in raw_roles if role_name_query in r["name"].lower()), None
+                            (r for r in raw_roles if role_name_query in r["name"].lower()),
+                            None,
                         )
-                        role_filter_id = int(matched_role["id"]) if matched_role else None
-                        live_members = await get_guild_members(role_id=role_filter_id)
-                        if wants_roles:
-                            live_roles = raw_roles
+                        if matched_role:
+                            role_filter_id = int(matched_role["id"])
+                            detected_role_name = matched_role["name"]
                     else:
-                        tasks_to_run = [get_guild_members()]
-                        if wants_roles:
-                            tasks_to_run.append(get_guild_roles())
-                        if wants_channels:
-                            tasks_to_run.append(get_guild_channels())
-                        results = await asyncio.gather(*tasks_to_run, return_exceptions=True)
-                        live_members = results[0] if not isinstance(results[0], Exception) else []
-                        idx = 1
-                        if wants_roles:
-                            live_roles = results[idx] if not isinstance(results[idx], Exception) else []
-                            idx += 1
-                        if wants_channels:
-                            live_channels = results[idx] if not isinstance(results[idx], Exception) else []
-                else:
-                    tasks_to_run = []
-                    if wants_roles:
-                        tasks_to_run.append(get_guild_roles())
-                    if wants_channels:
-                        tasks_to_run.append(get_guild_channels())
-                    results = await asyncio.gather(*tasks_to_run, return_exceptions=True)
-                    idx = 0
-                    if wants_roles:
-                        live_roles = results[idx] if not isinstance(results[idx], Exception) else []
-                        idx += 1
-                    if wants_channels:
-                        live_channels = results[idx] if not isinstance(results[idx], Exception) else []
+                        q_lower = question.lower()
+                        best_match = None
+                        best_match_len = 0
+                        for r in raw_roles:
+                            rname = (r["name"] or "").lower().strip()
+                            if len(rname) < 3:
+                                continue
+                            if rname in q_lower and len(rname) > best_match_len:
+                                best_match = r
+                                best_match_len = len(rname)
+                        if best_match:
+                            role_filter_id = int(best_match["id"])
+                            detected_role_name = best_match["name"]
+
+                    live_members = await get_guild_members(role_id=role_filter_id)
+
+                if wants_channels:
+                    live_channels = await get_guild_channels()
             except Exception as e:
                 print(f"[ask] Live data fetch error: {e}")
 
-        live_context = _build_live_context(question, live_members, live_roles, live_channels)
+        # -------- Contexto: busqueda web --------
+        if wants_web:
+            try:
+                web_results = await web_search(question, max_results=5)
+                print(f"[ask] web search returned {len(web_results)} results")
+            except Exception as e:
+                print(f"[ask] web search error: {e}")
+
+        live_context = _build_live_context(
+            question,
+            live_members,
+            live_roles,
+            live_channels,
+            author_info=author_info,
+            channel_messages=channel_messages,
+            web_results=web_results,
+            detected_role_name=detected_role_name,
+        )
 
         system_with_context = SYSTEM_PROMPT
         if live_context:
