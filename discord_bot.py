@@ -178,14 +178,20 @@ MAX_HISTORY_MESSAGES = 20
 
 FALLBACK_MODELS = [
     "llama-3.3-70b-versatile",
-    "llama-3.1-70b-versatile",
+    "meta-llama/llama-4-maverick-17b-128e-instruct",
+    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+    "moonshotai/kimi-k2-instruct-0905",
+    "qwen/qwen3-32b",
+    "deepseek-r1-distill-llama-70b",
     "llama-3.1-8b-instant",
     "gemma2-9b-it",
 ]
 
 _ASK_MAX_CYCLES = 3
-_ASK_MODEL_429_DELAY = 5
-_ASK_CYCLE_DELAY = 10
+_ASK_MODEL_429_DELAY = 1
+_ASK_CYCLE_DELAY = 6
 
 roblox_links: dict[int, str] = {}
 
@@ -1822,7 +1828,7 @@ async def handle_ask(message: discord.Message):
 
     if answer is None:
         await message.channel.send(
-            "El bot está temporalmente saturado, intentá en unos minutos."
+            "⚠️ The bot is temporarily overloaded. Please try again in a few minutes."
         )
         history.pop()
         return
