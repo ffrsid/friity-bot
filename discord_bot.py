@@ -1306,6 +1306,159 @@ _WEB_SEARCH_KEYWORDS = re.compile(
     re.IGNORECASE,
 )
 
+CRITICAL_RULES = (
+    "\n\n========= REGLAS ABSOLUTAS / ABSOLUTE RULES =========\n"
+    "1) NO INVENTAR JAMAS. NEVER invent acronyms, names, dates, numbers, tops, phases, clans, tournaments, or any data.\n"
+    "   Si no sabes el significado exacto de una sigla, NO la completes con palabras que suenen parecidas.\n"
+    "   Si el usuario pregunta por un dato dinamico (top 10, miembros actuales, anuncios, reglas vigentes, resultados, etc.)\n"
+    "   y NO tenes ese dato en la seccion '[LIVE DATA - ...]', deci claramente 'no tengo ese dato en tiempo real' o\n"
+    "   'necesito revisar el canal X, no lo tengo ahora'. Preferir decir 'no se' antes que inventar.\n"
+    "2) SIGLAS OFICIALES (NO existen otras):\n"
+    "   - TSB  = The Strongest Battlegrounds (el juego de Roblox).\n"
+    "   - TSBL = TSB LATAM (la liga competitiva de LATAM, donde trabaja Friity).\n"
+    "   - TSBCC = TSB Clanning Community.\n"
+    "   Prohibido inventar otro significado (por ejemplo 'The Strongest Brawlers Legend' es INCORRECTO).\n"
+    "3) IDIOMA: siempre respondes EN EL MISMO IDIOMA que escribio el usuario en este ultimo mensaje.\n"
+    "   Si escribio en ingles -> responder SOLO en ingles. Si en portugues -> SOLO portugues. Si en espanol -> SOLO espanol.\n"
+    "   No mezcles idiomas. No traduzcas si no te lo piden. Ignora el idioma del historial previo.\n"
+    "4) WEB: NO digas 'busque en internet' ni cites fuentes web a menos que haya una seccion '[LIVE DATA - Resultados de busqueda web ...]'.\n"
+    "   Si no hay resultados web cargados, significa que el usuario no pidio busqueda: contesta SOLO con tu conocimiento del clan/servidor.\n"
+    "5) FUENTES DE VERDAD: cuando haya secciones '[LIVE DATA - ...]', esa es la unica verdad para esa pregunta. Copia nombres y numeros tal cual.\n"
+    "6) Si el tema requiere datos de un canal (top 10, rules, anncs, phase-record, blacklist, etc.) y no hay datos de ese canal\n"
+    "   en los [LIVE DATA], deci al usuario que revise el canal o que le mencione el canal con # para que puedas leerlo.\n"
+    "=========\n"
+)
+
+LANG_DIRECTIVES = {
+    "en": (
+        "LANGUAGE LOCK: The user's latest message is in ENGLISH. "
+        "You MUST reply in English ONLY. Do not switch to Spanish or Portuguese under any circumstances."
+    ),
+    "pt": (
+        "LANGUAGE LOCK: A mensagem mais recente do usuario esta em PORTUGUES. "
+        "Voce DEVE responder APENAS em portugues. Nao mude para espanhol ou ingles."
+    ),
+    "es": (
+        "LANGUAGE LOCK: El ultimo mensaje del usuario esta en ESPANOL. "
+        "DEBES responder SOLO en espanol. No cambies a ingles ni portugues."
+    ),
+}
+
+_PT_MARKERS = [
+    " voce ", "voce,", "você", " voces ", "obrigad", "não ", " nao ", " está", " estão",
+    " olá", " oi ", " sim ", " aqui ", "jogador", "jogadores", " clã",
+    " comigo", " fazía", " será ", " ninguém", " alguém", " também",
+    " muito ", " onde ", " porque ", " porquê", " quem ", " entao ", " então ",
+    " qual ", " quais ", " acha ", " achou ", " é ", " são ", " está ",
+    " meu ", " minha ", " seu ", " sua ", " nosso ", " nossa ", " deles ",
+    " obrigado", " isso ", " isto ", " tudo ", " nada ", " agora ",
+    " ontem ", " hoje ", " amanha ", " amanhã ", " fazer ", " faz ",
+]
+_EN_MARKERS = [
+    " the ", " and ", " is ", " are ", " what ", " how ", " why ", " when ",
+    " where ", " who ", " you ", " your ", " can ", " could ", " would ",
+    " please ", " of ", " does ", " do you", " did ", " say ", " this ",
+    " that ", " these ", " tell me ", " i am ", " i'm ", " who is ", " what's ",
+]
+_ES_MARKERS = [
+    "¿", "¡", " qué ", " quién", " cómo ", " que ", " eres ", " soy ",
+    " está ", " tú ", " usted ", " algún ", " lo que ", " por qué ",
+    " cuál ", " cuando ", " donde ", " hola ", " qué", " cómo", " sí ",
+    " pero ", " también ", " así ", " siempre ", " nunca ", " decime",
+]
+
+
+def detect_language(text: str) -> str:
+    """Return 'en', 'pt', or 'es' based on simple marker heuristics."""
+    t = f" {(text or '').lower()} "
+    pt = sum(1 for m in _PT_MARKERS if m in t)
+    en = sum(1 for m in _EN_MARKERS if m in t)
+    es = sum(1 for m in _ES_MARKERS if m in t)
+    # Strong PT: words that almost never appear in ES
+    if any(strong in t for strong in ["você", "não", " obrigad", " clã", " também", "jogador"]):
+        pt += 3
+    # Strong EN: question words in English
+    if any(strong in t for strong in [" what is ", " who is ", " how do ", " what does ", " can you "]):
+        en += 3
+    if pt > es and pt > en:
+        return "pt"
+    if en > es and en > pt:
+        return "en"
+    if es > 0 or pt == en == 0:
+        return "es"
+    return "es"
+
+
+_CHANNEL_TOPIC_HINTS: dict[str, list[str]] = {
+    "top 10": ["top-10"],
+    "top-10": ["top-10"],
+    "top 20": ["top-20"],
+    "top-20": ["top-20"],
+    "top 30": ["top-30"],
+    "top-30": ["top-30"],
+    "leaderboard": ["top-10", "top-20", "top-30"],
+    "phase record": ["phase-record"],
+    "phase-record": ["phase-record"],
+    "sae": ["phase-record-sae", "sae-annc", "sae-anncs"],
+    "saw": ["phase-record-saw", "saw-annc", "saw-anncs"],
+    "rules": ["rules"],
+    "reglas": ["rules"],
+    "punishment": ["punishments"],
+    "punishments": ["punishments"],
+    "sanction": ["punishments"],
+    "sanciones": ["punishments"],
+    "blacklist": ["blacklist"],
+    "unblacklist": ["unblacklist"],
+    "annc": ["server-annc", "server-anncs"],
+    "anncs": ["server-annc", "server-anncs"],
+    "announcement": ["server-annc", "server-anncs"],
+    "anuncio": ["server-annc", "server-anncs"],
+    "anuncios": ["server-annc", "server-anncs"],
+    "tryout result": ["tryout-results"],
+    "tryout-results": ["tryout-results"],
+    "training result": ["training-results"],
+    "training-results": ["training-results"],
+    "p1 low trial": ["p1-low-trial-result"],
+    "p1 mid trial": ["p1-mid-trial-result"],
+    "set score": ["set-scores"],
+    "set-scores": ["set-scores"],
+    "challenge": ["challenge-ticket"],
+    "hall of fame": ["hall-of-fame"],
+    "hall of shame": ["hall-of-shame"],
+    "suggestions": ["suggestions"],
+    "sugerencias": ["suggestions"],
+    "events": ["events"],
+    "eventos": ["events"],
+    "memes": ["memes"],
+    "media": ["media"],
+    "overview": ["overview"],
+    "role guide": ["role-guide"],
+    "role-guide": ["role-guide"],
+    "tryout info": ["tryout-info"],
+    "training info": ["training-info"],
+}
+
+
+async def find_text_channel_by_name(name_query: str) -> "discord.TextChannel | None":
+    guild = client.get_guild(GUILD_ID)
+    if not guild:
+        return None
+    target = name_query.lower().strip().replace(" ", "-").lstrip("#")
+    # exact match first
+    for ch in guild.text_channels:
+        if ch.name.lower() == target:
+            return ch
+    # substring match (longest)
+    best = None
+    best_len = 0
+    for ch in guild.text_channels:
+        cname = ch.name.lower()
+        if target in cname and len(cname) > best_len:
+            best = ch
+            best_len = len(cname)
+    return best
+
+
 _TSB_KEYWORDS = re.compile(
     r"\b(tsb|tsbl|tsbcc|phase|phases|tier|tiers|glad|glads|gladiador|"
     r"tryout|tryouts|trial|trials|vouch|vouchs|clan|clans|server|servidor|"
@@ -1533,6 +1686,7 @@ def _build_live_context(
     channel_messages: list[dict] | None = None,
     web_results: list[dict] | None = None,
     detected_role_name: str | None = None,
+    cross_channel_messages: dict[str, list[dict]] | None = None,
 ) -> str | None:
     parts: list[str] = []
 
@@ -1586,6 +1740,24 @@ def _build_live_context(
             + "\nUsa SOLO estos mensajes para responder 'que dijo X' o preguntas sobre el chat. "
             "Si el usuario mencionado no aparece aca, decile que no lo encontraste en los mensajes recientes. "
             "No inventes ni parafrasees; cita tal cual."
+        )
+
+    if cross_channel_messages:
+        blocks: list[str] = []
+        for ch_name, msgs in cross_channel_messages.items():
+            recent = msgs[-25:]
+            ch_lines = [
+                f"  - [{m['created_at']}] {m['author']} (@{m['username']}): {m['content']}"
+                for m in recent
+            ]
+            blocks.append(f"CANAL {ch_name} (mas viejo primero):\n" + "\n".join(ch_lines))
+        parts.append(
+            "[LIVE DATA — Mensajes de otros canales relevantes del servidor]:\n"
+            + "\n\n".join(blocks)
+            + "\nUsa SOLO estos mensajes como fuente de verdad para preguntas sobre top 10, rules, "
+            "anncs, phase-record, blacklist, tryout-results, etc. NO inventes datos que no esten acá. "
+            "Si la respuesta no está en estos mensajes, decí que no lo encontraste en el canal "
+            "y sugeri al usuario que revise ese canal directamente."
         )
 
     if web_results:
@@ -1646,17 +1818,8 @@ async def handle_ask(message: discord.Message):
     wants_roles = bool(_ROLE_KEYWORDS.search(question))
     wants_channels = bool(_CHANNEL_KEYWORDS.search(question))
     wants_channel_history = bool(_CHANNEL_HISTORY_KEYWORDS.search(question)) or bool(reply_target)
-    wants_web_explicit = bool(_WEB_SEARCH_KEYWORDS.search(question))
-    has_tsb_keyword = bool(_TSB_KEYWORDS.search(question))
-    # Buscar en la web si el usuario lo pidio explicitamente, o si la pregunta
-    # no parece ser sobre el servidor/clan/TSB y tampoco es sobre el chat reciente.
-    wants_web = wants_web_explicit or (
-        not has_tsb_keyword
-        and not wants_channel_history
-        and not wants_members
-        and not wants_roles
-        and not wants_channels
-    )
+    wants_web = bool(_WEB_SEARCH_KEYWORDS.search(question))
+    user_lang = detect_language(question)
 
     live_members: list[dict] | None = None
     live_roles: list[dict] | None = None
@@ -1664,6 +1827,7 @@ async def handle_ask(message: discord.Message):
     channel_messages: list[dict] | None = None
     web_results: list[dict] | None = None
     detected_role_name: str | None = None
+    cross_channel_messages: dict[str, list[dict]] = {}
 
     answer = None
     async with message.channel.typing():
@@ -1693,6 +1857,46 @@ async def handle_ask(message: discord.Message):
                 )
             except Exception as e:
                 print(f"[ask] channel history error: {e}")
+
+        # -------- Contexto: mensajes de otros canales (mencionados o por tema) --------
+        try:
+            mentioned_channels = []
+            for ch in getattr(message, "channel_mentions", []) or []:
+                if ch.id != message.channel.id and isinstance(ch, discord.TextChannel):
+                    mentioned_channels.append(ch)
+
+            for ch in mentioned_channels[:3]:
+                msgs = await fetch_recent_channel_messages(
+                    ch, limit=40, exclude_message_id=message.id
+                )
+                if msgs:
+                    cross_channel_messages[f"#{ch.name}"] = msgs
+
+            if not mentioned_channels:
+                lowered = question.lower()
+                matched_names: list[str] = []
+                for keyword, chan_names in _CHANNEL_TOPIC_HINTS.items():
+                    if keyword in lowered:
+                        for cn in chan_names:
+                            if cn not in matched_names:
+                                matched_names.append(cn)
+                for chan_name in matched_names[:3]:
+                    if f"#{chan_name}" in cross_channel_messages:
+                        continue
+                    ch = await find_text_channel_by_name(chan_name)
+                    if ch and ch.id != message.channel.id:
+                        msgs = await fetch_recent_channel_messages(
+                            ch, limit=40, exclude_message_id=message.id
+                        )
+                        if msgs:
+                            cross_channel_messages[f"#{ch.name}"] = msgs
+            if cross_channel_messages:
+                print(
+                    f"[ask] cross-channel msgs: "
+                    f"{ {k: len(v) for k, v in cross_channel_messages.items()} }"
+                )
+        except Exception as e:
+            print(f"[ask] cross-channel fetch error: {e}")
 
         # -------- Contexto: miembros/roles/canales del server --------
         if wants_members or wants_roles or wants_channels:
@@ -1756,13 +1960,14 @@ async def handle_ask(message: discord.Message):
             channel_messages=channel_messages,
             web_results=web_results,
             detected_role_name=detected_role_name,
+            cross_channel_messages=cross_channel_messages or None,
         )
 
-        system_with_context = SYSTEM_PROMPT
+        lang_directive = LANG_DIRECTIVES.get(user_lang, LANG_DIRECTIVES["es"])
+        system_with_context = lang_directive + CRITICAL_RULES + "\n\n" + SYSTEM_PROMPT
         if live_context:
-            system_with_context = (
-                SYSTEM_PROMPT
-                + "\n\n--- REAL-TIME SERVER DATA (use this to answer accurately) ---\n"
+            system_with_context += (
+                "\n\n--- REAL-TIME SERVER DATA (use this to answer accurately) ---\n"
                 + live_context
             )
 
