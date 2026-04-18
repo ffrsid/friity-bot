@@ -39,7 +39,8 @@ active_polls: dict[str, "PollState"] = {}
 active_activity_checks: dict[str, "ActivityCheckState"] = {}
 ACTIVITY_EXCLUDED_IDS: set[int] = {1162798183068467220, 1025178585104920656}
 STREAKS_FILE = pathlib.Path("streaks.json")
-STREAK_MILESTONES = [1, 3, 7, 14, 30]
+ACTIVITY_STATE_FILE = pathlib.Path("activity_state.json")
+_STREAK_ROLE_NAME_RE = re.compile(r"^Streak (\d+)$")
 current_check_id: str | None = None
 streak_lock = asyncio.Lock()
 
@@ -893,39 +894,87 @@ def _save_streaks(data: dict) -> None:
     STREAKS_FILE.write_text(json.dumps(data, indent=2))
 
 
+def _save_activity_state() -> None:
+    try:
+        data = {
+            "current_check_id": current_check_id,
+            "checks": {
+                msg_id: {
+                    "check_id": st.check_id,
+                    "guild_id": st.guild_id,
+                    "original_channel_id": st.original_channel_id,
+                    "original_message_id": st.original_message_id,
+                    "checkers": {str(uid): name for uid, name in st.checkers.items()},
+                }
+                for msg_id, st in active_activity_checks.items()
+            },
+        }
+        ACTIVITY_STATE_FILE.write_text(json.dumps(data, indent=2))
+    except Exception as e:
+        print(f"[activity] save state failed: {e}")
+
+
+def _load_activity_state() -> None:
+    global current_check_id
+    try:
+        if not ACTIVITY_STATE_FILE.exists():
+            return
+        data = json.loads(ACTIVITY_STATE_FILE.read_text())
+        current_check_id = data.get("current_check_id")
+        for msg_id, info in (data.get("checks") or {}).items():
+            state = ActivityCheckState(
+                check_id=info["check_id"],
+                guild_id=int(info["guild_id"]),
+                original_channel_id=int(info["original_channel_id"]),
+            )
+            state.original_message_id = info.get("original_message_id")
+            state.checkers = {
+                int(uid): name
+                for uid, name in (info.get("checkers") or {}).items()
+            }
+            active_activity_checks[msg_id] = state
+        print(
+            f"[activity] Restored {len(active_activity_checks)} activity check(s) "
+            f"(current_check_id={current_check_id})"
+        )
+    except Exception as e:
+        print(f"[activity] load state failed: {e}")
+
+
 def get_streak(uid: int) -> int:
     data = _load_streaks()
     return data.get(str(uid), {}).get("streak", 0)
 
 
 async def _assign_streak_role(member: discord.Member, streak: int) -> None:
-    milestone = 0
-    for m in STREAK_MILESTONES:
-        if streak >= m:
-            milestone = m
     guild = member.guild
-    current_role: discord.Role | None = None
+    target_name = f"Streak {streak}" if streak > 0 else None
+
+    # Remove any other "Streak N" roles the member currently has.
+    roles_to_remove: list[discord.Role] = [
+        role
+        for role in list(member.roles)
+        if _STREAK_ROLE_NAME_RE.match(role.name) and role.name != target_name
+    ]
+
     target_role: discord.Role | None = None
-    roles_to_remove: list[discord.Role] = []
-    for m in STREAK_MILESTONES:
-        name = f"Streak {m}"
-        role = discord.utils.get(guild.roles, name=name)
-        if role is None:
+    if target_name:
+        target_role = discord.utils.get(guild.roles, name=target_name)
+        if target_role is None:
             try:
-                role = await guild.create_role(name=name, reason="Activity streak milestone")
+                target_role = await guild.create_role(
+                    name=target_name,
+                    reason=f"User reached streak {streak}",
+                )
             except Exception as e:
-                print(f"[streak] Could not create role {name}: {e}")
-                continue
-        if m == milestone:
-            target_role = role
-        else:
-            if role in member.roles:
-                roles_to_remove.append(role)
+                print(f"[streak] Could not create role {target_name}: {e}")
+                target_role = None
+
     try:
         if roles_to_remove:
             await member.remove_roles(*roles_to_remove, reason="Streak role update")
         if target_role and target_role not in member.roles:
-            await member.add_roles(target_role, reason=f"Streak {streak} milestone")
+            await member.add_roles(target_role, reason=f"Streak {streak}")
     except Exception as e:
         print(f"[streak] Role assign error for {member}: {e}")
 
@@ -997,6 +1046,8 @@ async def handle_activity_check(message: discord.Message):
     state.original_message_id = str(message.id)
     active_activity_checks[str(message.id)] = state
 
+    _save_activity_state()
+
     asyncio.create_task(_add_reaction(message.channel.id, str(message.id), "✅"))
 
     await _discord_api_request(
@@ -1014,6 +1065,7 @@ async def on_ready():
     client.add_view(RulesView())
     client.add_view(PunishmentsView())
     client.add_view(LinkRobloxView())
+    _load_activity_state()
     print(f"Logged in as {client.user} (ID: {client.user.id})")
     print(f"Owner ID cached: {BOT_OWNER_ID}")
     print("Bot is ready. Listening for >ask, >tier, >poll, >setuprules, >info, ?activity check commands.")
@@ -1225,6 +1277,8 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
         new_streak = entry["streak"]
         _save_streaks(data)
 
+    _save_activity_state()
+
     if payload.member:
         asyncio.create_task(_assign_streak_role(payload.member, new_streak))
 
@@ -1244,6 +1298,7 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
         return
 
     state.checkers.pop(payload.user_id, None)
+    _save_activity_state()
 
     async with streak_lock:
         data = _load_streaks()
@@ -1308,24 +1363,39 @@ _WEB_SEARCH_KEYWORDS = re.compile(
 
 CRITICAL_RULES = (
     "\n\n========= REGLAS ABSOLUTAS / ABSOLUTE RULES =========\n"
-    "1) NO INVENTAR JAMAS. NEVER invent acronyms, names, dates, numbers, tops, phases, clans, tournaments, or any data.\n"
+    "0) BREVEDAD OBLIGATORIA: respondes en 1-3 oraciones maximo. NO des textos largos ni biblias.\n"
+    "   Solo te extendes si el usuario pide explicitamente 'explicame en detalle', 'dame todos los detalles',\n"
+    "   'lista completa', etc. Por defecto: directo, corto, sin relleno ni disclaimers.\n"
+    "1) IDENTIDAD POR DEFECTO: sos el bot del CLAN Celestials Dragons. La mayoria de las preguntas son sobre\n"
+    "   el clan, su servidor, sus miembros, sus canales, sus rules internas, sus anuncios, activity, streaks, etc.\n"
+    "   Responde SIEMPRE enfocado en el clan, con la info del servidor Celestials Dragons.\n"
+    "2) SEPARACION CLAN vs TSBL: NO mezcles info de TSBL con info del clan. SOLO hablas de TSBL si el usuario\n"
+    "   usa explicitamente al menos UNA de estas palabras: TSBL, TSB, TSBCC, phase, phases, tier, tiers,\n"
+    "   glad, glads, gladiador, tryout, tryouts, trial, trials, vouch, vouchs, top 10 sae, top 10 saw,\n"
+    "   phase-record, boomy, ayato, saitama, garou, metal bat, lagswitch, passive strike, aba, hunter grasp,\n"
+    "   lordheaven, bullet dash, leaderboard de TSBL, competitivo. Si NO aparecen, responde SOLO del clan\n"
+    "   y no menciones TSBL ni phases/tiers/glads aunque te parezca relacionado.\n"
+    "3) NO INVENTAR JAMAS. NEVER invent acronyms, names, dates, numbers, tops, phases, clans, tournaments, or any data.\n"
     "   Si no sabes el significado exacto de una sigla, NO la completes con palabras que suenen parecidas.\n"
     "   Si el usuario pregunta por un dato dinamico (top 10, miembros actuales, anuncios, reglas vigentes, resultados, etc.)\n"
     "   y NO tenes ese dato en la seccion '[LIVE DATA - ...]', deci claramente 'no tengo ese dato en tiempo real' o\n"
     "   'necesito revisar el canal X, no lo tengo ahora'. Preferir decir 'no se' antes que inventar.\n"
-    "2) SIGLAS OFICIALES (NO existen otras):\n"
+    "4) SIGLAS OFICIALES (NO existen otras):\n"
     "   - TSB  = The Strongest Battlegrounds (el juego de Roblox).\n"
-    "   - TSBL = TSB LATAM (la liga competitiva de LATAM, donde trabaja Friity).\n"
+    "   - TSBL = TSB LATAM (la liga competitiva de LATAM).\n"
     "   - TSBCC = TSB Clanning Community.\n"
     "   Prohibido inventar otro significado (por ejemplo 'The Strongest Brawlers Legend' es INCORRECTO).\n"
-    "3) IDIOMA: siempre respondes EN EL MISMO IDIOMA que escribio el usuario en este ultimo mensaje.\n"
+    "5) IDIOMA: siempre respondes EN EL MISMO IDIOMA que escribio el usuario en este ultimo mensaje.\n"
     "   Si escribio en ingles -> responder SOLO en ingles. Si en portugues -> SOLO portugues. Si en espanol -> SOLO espanol.\n"
     "   No mezcles idiomas. No traduzcas si no te lo piden. Ignora el idioma del historial previo.\n"
-    "4) WEB: NO digas 'busque en internet' ni cites fuentes web a menos que haya una seccion '[LIVE DATA - Resultados de busqueda web ...]'.\n"
+    "6) WEB: NO digas 'busque en internet' ni cites fuentes web a menos que haya una seccion '[LIVE DATA - Resultados de busqueda web ...]'.\n"
     "   Si no hay resultados web cargados, significa que el usuario no pidio busqueda: contesta SOLO con tu conocimiento del clan/servidor.\n"
-    "5) FUENTES DE VERDAD: cuando haya secciones '[LIVE DATA - ...]', esa es la unica verdad para esa pregunta. Copia nombres y numeros tal cual.\n"
-    "6) Si el tema requiere datos de un canal (top 10, rules, anncs, phase-record, blacklist, etc.) y no hay datos de ese canal\n"
+    "7) FUENTES DE VERDAD: cuando haya secciones '[LIVE DATA - ...]', esa es la unica verdad para esa pregunta. Copia nombres y numeros tal cual.\n"
+    "8) Si el tema requiere datos de un canal (top 10, rules, anncs, phase-record, blacklist, etc.) y no hay datos de ese canal\n"
     "   en los [LIVE DATA], deci al usuario que revise el canal o que le mencione el canal con # para que puedas leerlo.\n"
+    "9) STREAK: es el contador de participacion en activity checks del clan. Cada vez que un usuario reacciona con\n"
+    "   el check a un activity check nuevo, su streak sube en 1. Si se saltea un activity check, su streak vuelve a 0.\n"
+    "   Esto es del clan Celestials Dragons, no de TSBL. El comando para lanzarlo es '?activity check' (solo el owner).\n"
     "=========\n"
 )
 
