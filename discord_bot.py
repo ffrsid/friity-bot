@@ -1320,21 +1320,31 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
 
 
 _MEMBER_KEYWORDS = re.compile(
-    r"\b(members?|who is|who are|clan members?|list members?|how many members?|"
-    r"members? with role|players? in|people in|users? in|quienes? (son|estan|hay)|"
-    r"miembros?|cuantos? miembros?|lista de miembros?|jugadores? (del|en el) clan)\b",
+    r"\b(members?\w*|who is|who are|clan members?|list members?|how many members?|"
+    r"members? with role|players?\w*|people\w*|users?\w*|quienes?\w*|"
+    r"miembros?\w*|cuant[oa]s?\w*|lista\w*|jugadores?\w*|personas?\w*)\b",
     re.IGNORECASE,
 )
 
 _ROLE_KEYWORDS = re.compile(
-    r"\b(roles?|what roles?|list roles?|que roles?|cuales? roles?|"
-    r"rank(s|es)?|tiers?|phases?)\b",
+    r"\b(roles?\w*|roless?|rol\w*|what roles?|list roles?|que roles?|"
+    r"cuales? roles?|cuantos? roles?|lista de roles?|"
+    r"rank\w*|tier\w*|phase\w*)\b",
     re.IGNORECASE,
 )
 
 _CHANNEL_KEYWORDS = re.compile(
-    r"\b(channels?|canales?|what channels?|list channels?|que canales?|"
-    r"cuales? canales?|donde (esta|hay)|where is)\b",
+    r"\b(channels?\w*|canales?\w*|canal\w*|what channels?|list channels?|"
+    r"que canales?|cuales? canales?|donde (esta|hay)|where is)\b",
+    re.IGNORECASE,
+)
+
+_STAFF_KEYWORDS = re.compile(
+    r"\b(mod\w*|staff\w*|moderator\w*|moderador\w*|tryouter\w*|"
+    r"admin\w*|owner\w*|voucher\w*|manager\w*|"
+    r"como ser\w*|how to be\w*|requisitos?|requirements?|"
+    r"como (?:me |se |)hago|como (?:puedo |)ser|"
+    r"como (?:me |se |)convierto|how (?:do i |can i |to )become)\b",
     re.IGNORECASE,
 )
 
@@ -1396,6 +1406,15 @@ CRITICAL_RULES = (
     "9) STREAK: es el contador de participacion en activity checks del clan. Cada vez que un usuario reacciona con\n"
     "   el check a un activity check nuevo, su streak sube en 1. Si se saltea un activity check, su streak vuelve a 0.\n"
     "   Esto es del clan Celestials Dragons, no de TSBL. El comando para lanzarlo es '?activity check' (solo el owner).\n"
+    "10) PROHIBIDO decir 'no tengo acceso a los canales/roles/miembros del servidor'. SI TENES ACCESO via Discord API.\n"
+    "    Si un dato no esta en [LIVE DATA], NO digas que falta acceso. Deci 'no lo encontre en los mensajes recientes de #canal'\n"
+    "    o 'no tengo ese dato cargado ahora'. NUNCA niegues acceso al servidor.\n"
+    "11) PROHIBIDO INVENTAR REQUISITOS. Si te preguntan 'como ser mod/staff/tryouter/voucher/manager', 'que requisitos hay para X rol',\n"
+    "    'como me hago voucher', etc., y NO tenes la info oficial en [LIVE DATA - ...] ni en este prompt, DICE TEXTUAL:\n"
+    "    'No tengo los requisitos oficiales cargados. Preguntale a un staff o revisa #role-guide'.\n"
+    "    JAMAS improvises una lista generica como 'ser activo, buen comportamiento, tener skill, ser recomendado'. Eso es inventar.\n"
+    "12) Si hay [LIVE DATA - Server roles] y el usuario pregunta por un rol, BUSCA en esa lista el rol exacto. Si no aparece,\n"
+    "    decile que no existe ese rol en el servidor (en vez de adivinar o inventar requisitos).\n"
     "=========\n"
 )
 
@@ -1460,6 +1479,22 @@ def detect_language(text: str) -> str:
 
 
 _CHANNEL_TOPIC_HINTS: dict[str, list[str]] = {
+    "mod": ["role-guide", "rules"],
+    "staff": ["role-guide", "rules"],
+    "moderator": ["role-guide", "rules"],
+    "moderador": ["role-guide", "rules"],
+    "tryouter": ["role-guide", "tryout-info"],
+    "como ser": ["role-guide"],
+    "how to be": ["role-guide"],
+    "how do i become": ["role-guide"],
+    "how can i become": ["role-guide"],
+    "requisito": ["role-guide", "rules"],
+    "requirement": ["role-guide", "rules"],
+    "roles": ["role-guide"],
+    "role guide": ["role-guide"],
+    "role-guide": ["role-guide"],
+    "overview": ["overview"],
+    "welcome": ["welcome"],
     "top 10": ["top-10"],
     "top-10": ["top-10"],
     "top 20": ["top-20"],
@@ -1889,7 +1924,22 @@ async def handle_ask(message: discord.Message):
     wants_channels = bool(_CHANNEL_KEYWORDS.search(question))
     wants_channel_history = bool(_CHANNEL_HISTORY_KEYWORDS.search(question)) or bool(reply_target)
     wants_web = bool(_WEB_SEARCH_KEYWORDS.search(question))
+    asks_about_staff = bool(_STAFF_KEYWORDS.search(question))
     user_lang = detect_language(question)
+
+    # Para preguntas del clan (no TSBL-only), siempre traemos roles y channels
+    # porque son baratos (una API call cada uno) y evitan que el bot diga
+    # "no tengo acceso" o invente info.
+    is_tsbl_only_question = bool(_TSB_KEYWORDS.search(question)) and not (
+        wants_members or wants_roles or wants_channels
+        or wants_channel_history or asks_about_staff
+    )
+    if not is_tsbl_only_question:
+        wants_roles = True
+        wants_channels = True
+    if asks_about_staff:
+        # Las preguntas de 'como ser mod/staff' requieren ver miembros y roles
+        wants_members = True
 
     live_members: list[dict] | None = None
     live_roles: list[dict] | None = None
