@@ -1303,12 +1303,6 @@ async def on_interaction(interaction: discord.Interaction):
             "data": {
                 "content": f"Go to channel: <#{chan_id}>",
                 "flags": 64,
-                "embeds": [
-                    {
-                        "color": RULESV2_ACCENT_COLOR,
-                        "image": {"url": RULESV2_SELECT_IMAGE_URL},
-                    }
-                ],
             },
         })
         return
@@ -2605,13 +2599,11 @@ RULESV2_CHANNEL_OPTIONS: list[int] = [
     1451396134105911427,
 ]
 
-# Color del container + del embed efimero (dragon red)
-RULESV2_ACCENT_COLOR: int = 0xC0392B  # 12605483
-
-# Imagen que se muestra en la respuesta efimera al elegir un canal
-RULESV2_SELECT_IMAGE_URL: str = (
+# Imagen principal del container de >rulesv2 (sustituye a RULES_IMAGE_URL aca)
+RULESV2_IMAGE_URL: str = (
     "https://cdn.discordapp.com/attachments/1451654847408373947/"
-    "1495449735522291842/1776613328731-Photoroom.png"
+    "1495469836598378576/1776618183605.jpg?ex=69e65c51&is=69e50ad1"
+    "&hm=14c5c1d91869244791d91344d5df13cd447b30d48646850732871284e1e88c97&"
 )
 
 # Emoji a mostrar antes del titulo (reemplaza al punto medio ・)
@@ -2649,11 +2641,10 @@ async def handle_rulesv2(message: discord.Message):
         "components": [
             {
                 "type": 17,
-                "accent_color": RULESV2_ACCENT_COLOR,
                 "components": [
                     {
                         "type": 12,
-                        "items": [{"media": {"url": RULES_IMAGE_URL}}],
+                        "items": [{"media": {"url": RULESV2_IMAGE_URL}}],
                     },
                     {"type": 14, "spacing": 2},
                     {
@@ -2702,6 +2693,11 @@ async def handle_rulesv2(message: discord.Message):
                     },
                     {"type": 14},
                     {"type": 10, "content": "** Check the other channels for more information. **"},
+                ],
+            },
+            {
+                "type": 17,
+                "components": [
                     {
                         "type": 1,
                         "components": [
@@ -2716,7 +2712,7 @@ async def handle_rulesv2(message: discord.Message):
                         ],
                     },
                 ],
-            }
+            },
         ],
     }
 
