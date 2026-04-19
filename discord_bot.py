@@ -1108,6 +1108,8 @@ async def on_message(message: discord.Message):
         await handle_poll(message)
     elif message.content.startswith(">setuprules"):
         await handle_setuprules(message)
+    elif message.content.startswith(">rulesv2"):
+        await handle_rulesv2(message)
     elif message.content.startswith(">info"):
         await handle_info(message)
     elif message.content.lower().startswith("?activity"):
@@ -1120,6 +1122,26 @@ async def on_interaction(interaction: discord.Interaction):
         return
 
     custom_id: str = (interaction.data or {}).get("custom_id", "")
+
+    # StringSelect del container de rules (>rulesv2): responde efimero con link al canal
+    if custom_id == "menu_canales":
+        values = (interaction.data or {}).get("values") or []
+        if not values:
+            await _interaction_callback(interaction, {
+                "type": 4,
+                "data": {"content": "No seleccionaste ningun canal.", "flags": 64},
+            })
+            return
+        chan_id = values[0]
+        await _interaction_callback(interaction, {
+            "type": 4,
+            "data": {
+                "content": f"Ir al canal: <#{chan_id}>",
+                "flags": 64,
+            },
+        })
+        return
+
     parts = custom_id.split(":")
     if len(parts) < 2:
         return
@@ -2336,6 +2358,128 @@ async def handle_setuprules(message: discord.Message):
     )
 
     await message.channel.send(embeds=[embed1, embed2], view=RulesView())
+
+
+RULESV2_CHANNEL_OPTIONS: list[int] = [
+    1487884455728124014,
+    1487268275963428895,
+    1487268312244289537,
+    1451396134105911427,
+]
+
+
+async def handle_rulesv2(message: discord.Message):
+    """Postea el container Components V2 con dropdown de canales.
+
+    Solo el owner puede correrlo y solo en SETUPRULES_CHANNEL_ID.
+    El dropdown usa StringSelect con IDs reales de canales; al seleccionar,
+    el bot responde efímero con <#channel_id> (mencion clickeable para saltar).
+    """
+    if message.channel.id != SETUPRULES_CHANNEL_ID:
+        await message.channel.send("Este comando solo puede usarse en el canal de rules.")
+        return
+    if BOT_OWNER_ID is not None and message.author.id != BOT_OWNER_ID:
+        await message.channel.send("Solo el owner puede usar este comando.")
+        return
+
+    guild = message.guild
+    options: list[dict] = []
+    for cid in RULESV2_CHANNEL_OPTIONS:
+        ch = guild.get_channel(cid) if guild else None
+        label = (ch.name if ch else f"channel-{cid}")[:100]
+        desc = (f"Ir a #{ch.name}"[:100]) if ch else "Canal no encontrado"
+        options.append({
+            "label": label,
+            "value": str(cid),
+            "description": desc,
+        })
+
+    payload = {
+        "flags": COMPONENTS_V2_FLAG,
+        "components": [
+            {
+                "type": 17,
+                "accent_color": 16298488,
+                "components": [
+                    {
+                        "type": 12,
+                        "items": [{"media": {"url": RULES_IMAGE_URL}}],
+                    },
+                    {"type": 14, "spacing": 2},
+                    {
+                        "type": 10,
+                        "content": (
+                            "## ・Celestials Dragons | Rules\n"
+                            " *** Welcome to Celestials Dragons! Please select your language to read the clan rules. ***\n"
+                            "[Discord Terms of Service](https://discord.com/terms)"
+                        ),
+                    },
+                    {"type": 14, "spacing": 2},
+                    {
+                        "type": 9,
+                        "components": [
+                            {"type": 10, "content": "<:emoji_44:1489765823533809674>  ** Selecciona Español **"}
+                        ],
+                        "accessory": {
+                            "type": 2, "style": 5, "label": "Español",
+                            "emoji": {"id": "1489666661228347526", "name": "Esp"},
+                            "url": f"https://discord.com/channels/{GUILD_ID}/1489768820632588419",
+                        },
+                    },
+                    {"type": 14, "divider": False},
+                    {
+                        "type": 9,
+                        "components": [
+                            {"type": 10, "content": "<:emoji_44:1489765823533809674> ** Select English **"}
+                        ],
+                        "accessory": {
+                            "type": 2, "style": 5, "label": "English",
+                            "emoji": {"id": "1489667788820971730", "name": "EEUU"},
+                            "url": f"https://discord.com/channels/{GUILD_ID}/1489768537982500895",
+                        },
+                    },
+                    {"type": 14},
+                    {
+                        "type": 9,
+                        "components": [
+                            {"type": 10, "content": "<:emoji_44:1489765823533809674> ** Selecione Português **"}
+                        ],
+                        "accessory": {
+                            "type": 2, "style": 5, "label": "Português",
+                            "emoji": {"id": "1489666119689306276", "name": "emoji_40"},
+                            "url": f"https://discord.com/channels/{GUILD_ID}/1489769065135214704",
+                        },
+                    },
+                    {"type": 14},
+                    {"type": 10, "content": "** Check the other channels for more information. **"},
+                    {
+                        "type": 1,
+                        "components": [
+                            {
+                                "type": 3,
+                                "custom_id": "menu_canales",
+                                "placeholder": "Channels",
+                                "min_values": 1,
+                                "max_values": 1,
+                                "options": options,
+                            }
+                        ],
+                    },
+                ],
+            }
+        ],
+    }
+
+    try:
+        await message.delete()
+    except Exception:
+        pass
+
+    resp = await _discord_api_request(
+        "POST", f"/channels/{message.channel.id}/messages", payload
+    )
+    if isinstance(resp, dict) and resp.get("message"):
+        print(f"[rulesv2] API error: {resp}")
 
 
 async def fetch_roblox_user(username: str) -> dict | None:
