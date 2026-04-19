@@ -40,6 +40,13 @@ active_activity_checks: dict[str, "ActivityCheckState"] = {}
 ACTIVITY_EXCLUDED_IDS: set[int] = {1162798183068467220, 1025178585104920656}
 STREAKS_FILE = pathlib.Path("streaks.json")
 ACTIVITY_STATE_FILE = pathlib.Path("activity_state.json")
+USER_REGISTRY_FILE = pathlib.Path("user_registry.json")
+
+# Registro in-memory de usuarios por guild. Se persiste a USER_REGISTRY_FILE.
+# Estructura: { guild_id_str: { "name": str, "updated_at": iso, "users": { user_id_str: {..entry..} } } }
+_user_registry: dict[str, dict] = {}
+_registry_dirty_count: int = 0
+_REGISTRY_SAVE_EVERY: int = 10  # guardar a disco cada N updates para no martillar el FS
 _STREAK_ROLE_NAME_RE = re.compile(r"^Streak (\d+)$")
 current_check_id: str | None = None
 streak_lock = asyncio.Lock()
@@ -918,6 +925,150 @@ def _save_streaks(data: dict) -> None:
     STREAKS_FILE.write_text(json.dumps(data, indent=2))
 
 
+# ---------------- User registry ----------------
+
+def _load_user_registry() -> None:
+    """Carga el registro persistido a memoria. Si falla, arranca vacio."""
+    global _user_registry
+    try:
+        if USER_REGISTRY_FILE.exists():
+            _user_registry = json.loads(USER_REGISTRY_FILE.read_text())
+            total = sum(len(g.get("users", {})) for g in _user_registry.values())
+            print(f"[registry] Loaded {total} users across {len(_user_registry)} guild(s)")
+        else:
+            _user_registry = {}
+    except Exception as e:
+        print(f"[registry] load failed: {e}")
+        _user_registry = {}
+
+
+def _save_user_registry(force: bool = False) -> None:
+    """Guarda a disco. Debouncea escribiendo cada N llamadas salvo que force=True."""
+    global _registry_dirty_count
+    _registry_dirty_count += 1
+    if not force and _registry_dirty_count < _REGISTRY_SAVE_EVERY:
+        return
+    _registry_dirty_count = 0
+    try:
+        USER_REGISTRY_FILE.write_text(json.dumps(_user_registry, indent=2, default=str))
+    except Exception as e:
+        print(f"[registry] save failed: {e}")
+
+
+def _ensure_guild_entry(guild_id: int, name: str | None = None) -> dict:
+    gkey = str(guild_id)
+    gentry = _user_registry.get(gkey)
+    if gentry is None:
+        gentry = {"name": name or "", "users": {}, "updated_at": ""}
+        _user_registry[gkey] = gentry
+    if name:
+        gentry["name"] = name
+    return gentry
+
+
+def update_user_in_registry(
+    member,
+    guild=None,
+    bump_last_seen: bool = True,
+) -> None:
+    """Crea o actualiza la entrada de un user en el registry.
+
+    - member: discord.Member o discord.User
+    - guild: discord.Guild (si es None, intenta member.guild)
+    - bump_last_seen: si True, actualiza el last_seen a ahora
+    """
+    if guild is None:
+        guild = getattr(member, "guild", None)
+    if guild is None:
+        return
+    try:
+        gentry = _ensure_guild_entry(guild.id, guild.name)
+        now_iso = datetime.now(timezone.utc).isoformat()
+        uid = str(member.id)
+        existing = gentry["users"].get(uid, {})
+        joined_at = existing.get("joined_at")
+        m_joined = getattr(member, "joined_at", None)
+        if m_joined is not None:
+            try:
+                joined_at = m_joined.isoformat()
+            except Exception:
+                pass
+        roles = [
+            {"id": r.id, "name": r.name}
+            for r in getattr(member, "roles", [])
+            if getattr(r, "name", None) and r.name != "@everyone"
+        ]
+        entry = {
+            "username": getattr(member, "name", str(member.id)),
+            "display_name": getattr(member, "display_name", None)
+                or getattr(member, "global_name", None)
+                or getattr(member, "name", str(member.id)),
+            "is_bot": bool(getattr(member, "bot", False)),
+            "joined_at": joined_at,
+            "roles": roles,
+            "last_seen": now_iso if bump_last_seen else existing.get("last_seen"),
+            "streak": existing.get("streak", 0),
+        }
+        gentry["users"][uid] = entry
+        gentry["updated_at"] = now_iso
+        _save_user_registry(force=False)
+    except Exception as e:
+        print(f"[registry] update_user failed for {getattr(member, 'id', '?')}: {e}")
+
+
+async def snapshot_all_users(guild) -> int:
+    """Snapshot completo de miembros de un guild al registry. Guarda a disco al final."""
+    gentry = _ensure_guild_entry(guild.id, guild.name)
+    count = 0
+    try:
+        members_iter = list(getattr(guild, "members", []) or [])
+        if len(members_iter) <= 1:
+            try:
+                members_iter = [m async for m in guild.fetch_members(limit=None)]
+            except Exception as e:
+                print(f"[registry] fetch_members failed for {guild.id}: {e}")
+        for member in members_iter:
+            update_user_in_registry(member, guild, bump_last_seen=False)
+            count += 1
+    except Exception as e:
+        print(f"[registry] snapshot failed for {guild.id}: {e}")
+    _save_user_registry(force=True)
+    print(f"[registry] Snapshotted {count} users in '{guild.name}' (id {guild.id})")
+    return count
+
+
+def sync_streak_in_registry(user_id: int, streak: int) -> None:
+    """Propaga el streak actualizado al registry (llamar tras cambiar streaks.json)."""
+    uid = str(user_id)
+    for gentry in _user_registry.values():
+        entry = gentry.get("users", {}).get(uid)
+        if entry is not None:
+            entry["streak"] = streak
+    _save_user_registry(force=False)
+
+
+def format_user_registry_entry(user_id: int, guild_id: int | None = None) -> str | None:
+    """Formatea la entrada del user para pasarla al LLM. Devuelve None si no existe."""
+    uid = str(user_id)
+    entry = None
+    if guild_id is not None:
+        entry = _user_registry.get(str(guild_id), {}).get("users", {}).get(uid)
+    if entry is None:
+        for gentry in _user_registry.values():
+            entry = gentry.get("users", {}).get(uid)
+            if entry is not None:
+                break
+    if entry is None:
+        return None
+    roles_str = ", ".join(r["name"] for r in entry.get("roles") or []) or "sin roles destacados"
+    return (
+        f"display_name={entry.get('display_name')}, username={entry.get('username')}, "
+        f"id={user_id}, is_bot={entry.get('is_bot', False)}, "
+        f"joined_at={entry.get('joined_at') or '?'}, last_seen={entry.get('last_seen') or '?'}, "
+        f"streak={entry.get('streak', 0)}, roles=[{roles_str}]"
+    )
+
+
 def _save_activity_state() -> None:
     try:
         data = {
@@ -1090,6 +1241,13 @@ async def on_ready():
     client.add_view(PunishmentsView())
     client.add_view(LinkRobloxView())
     _load_activity_state()
+    _load_user_registry()
+    # Snapshot completo de cada guild al arrancar
+    for guild in client.guilds:
+        try:
+            await snapshot_all_users(guild)
+        except Exception as e:
+            print(f"[registry] startup snapshot failed for {guild.id}: {e}")
     print(f"Logged in as {client.user} (ID: {client.user.id})")
     print(f"Owner ID cached: {BOT_OWNER_ID}")
     print("Bot is ready. Listening for >ask, >tier, >poll, >setuprules, >info, ?activity check commands.")
@@ -1099,6 +1257,13 @@ async def on_ready():
 async def on_message(message: discord.Message):
     if message.author.bot:
         return
+
+    # Mantener el registry actualizado con el autor del mensaje
+    if message.guild is not None:
+        try:
+            update_user_in_registry(message.author, message.guild, bump_last_seen=True)
+        except Exception as e:
+            print(f"[registry] on_message update failed: {e}")
 
     if message.content.startswith(">ask"):
         await handle_ask(message)
@@ -1129,15 +1294,21 @@ async def on_interaction(interaction: discord.Interaction):
         if not values:
             await _interaction_callback(interaction, {
                 "type": 4,
-                "data": {"content": "No seleccionaste ningun canal.", "flags": 64},
+                "data": {"content": "You didn't select any channel.", "flags": 64},
             })
             return
         chan_id = values[0]
         await _interaction_callback(interaction, {
             "type": 4,
             "data": {
-                "content": f"Ir al canal: <#{chan_id}>",
+                "content": f"Go to channel: <#{chan_id}>",
                 "flags": 64,
+                "embeds": [
+                    {
+                        "color": RULESV2_ACCENT_COLOR,
+                        "image": {"url": RULESV2_SELECT_IMAGE_URL},
+                    }
+                ],
             },
         })
         return
@@ -1324,8 +1495,13 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
         _save_streaks(data)
 
     _save_activity_state()
+    sync_streak_in_registry(payload.user_id, new_streak)
 
     if payload.member:
+        try:
+            update_user_in_registry(payload.member, payload.member.guild, bump_last_seen=True)
+        except Exception:
+            pass
         asyncio.create_task(_assign_streak_role(payload.member, new_streak))
 
 
@@ -1358,10 +1534,16 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
         else:
             new_streak = entry.get("streak", 0) if entry else 0
 
+    sync_streak_in_registry(payload.user_id, new_streak)
+
     guild = client.get_guild(payload.guild_id)
     if guild:
         member = guild.get_member(payload.user_id)
         if member:
+            try:
+                update_user_in_registry(member, guild, bump_last_seen=True)
+            except Exception:
+                pass
             asyncio.create_task(_assign_streak_role(member, new_streak))
 
 
@@ -1461,6 +1643,14 @@ CRITICAL_RULES = (
     "    JAMAS improvises una lista generica como 'ser activo, buen comportamiento, tener skill, ser recomendado'. Eso es inventar.\n"
     "12) Si hay [LIVE DATA - Server roles] y el usuario pregunta por un rol, BUSCA en esa lista el rol exacto. Si no aparece,\n"
     "    decile que no existe ese rol en el servidor (en vez de adivinar o inventar requisitos).\n"
+    "13) REGISTRY DE USUARIOS: el bot mantiene un registro persistente de TODOS los miembros del servidor\n"
+    "    (username, display_name, roles, joined_at, last_seen, streak). Cada vez que el usuario pregunte por\n"
+    "    un miembro especifico, revisa [LIVE DATA - Mentioned users] y [LIVE DATA - Server registry].\n"
+    "    El registry vive en user_registry.json y se actualiza en cada mensaje y activity check.\n"
+    "14) PROHIBIDO decir 'no tengo informacion sobre ese usuario' / 'no encuentro a ese miembro' /\n"
+    "    'no conozco a ese user' si el usuario aparece en [LIVE DATA - Mentioned users] o en el registry.\n"
+    "    Si te mencionan a alguien y esta en el registry, tenes su info completa: usala. Si explicitamente\n"
+    "    figura como 'NO esta en el registry', recien ahi deci 'ese usuario no esta en el registro del clan'.\n"
     "=========\n"
 )
 
@@ -1838,8 +2028,45 @@ def _build_live_context(
     web_results: list[dict] | None = None,
     detected_role_name: str | None = None,
     cross_channel_messages: dict[str, list[dict]] | None = None,
+    guild_id: int | None = None,
+    mentioned_user_ids: list[int] | None = None,
 ) -> str | None:
     parts: list[str] = []
+
+    # [LIVE DATA - Server registry] siempre que haya guild_id
+    if guild_id is not None:
+        gentry = _user_registry.get(str(guild_id))
+        if gentry:
+            users = gentry.get("users") or {}
+            total = len(users)
+            humans = sum(1 for u in users.values() if not u.get("is_bot"))
+            bots = total - humans
+            parts.append(
+                "[LIVE DATA — Server registry]: "
+                f"guild='{gentry.get('name', '?')}' (id {guild_id}), "
+                f"registered_users={total} (humans {humans}, bots {bots}), "
+                f"last_snapshot={gentry.get('updated_at') or '?'}. "
+                "Tenes el registro completo de users del server en memoria. "
+                "Si te preguntan por 'usuarios', 'miembros', 'quienes son', etc., USAS ESTO, "
+                "nunca digas que no tenes info del server."
+            )
+
+    # [LIVE DATA - Mentioned users]: entradas del registry de cada @mencion
+    if mentioned_user_ids:
+        user_lines: list[str] = []
+        for uid in mentioned_user_ids:
+            formatted = format_user_registry_entry(uid, guild_id)
+            if formatted:
+                user_lines.append(f"- {formatted}")
+            else:
+                user_lines.append(f"- id={uid}: NO esta en el registry (usuario desconocido)")
+        if user_lines:
+            parts.append(
+                "[LIVE DATA — Mentioned users]:\n"
+                + "\n".join(user_lines)
+                + "\nEsta es la data OFICIAL de los usuarios mencionados en el mensaje. "
+                "USASELA para responder preguntas sobre ellos. NO digas 'no tengo info de este usuario'."
+            )
 
     if author_info:
         roles_text = ", ".join(author_info.get("roles") or []) or "sin roles destacados"
@@ -2117,6 +2344,15 @@ async def handle_ask(message: discord.Message):
             except Exception as e:
                 print(f"[ask] web search error: {e}")
 
+        mentioned_ids = [u.id for u in (message.mentions or []) if not getattr(u, "bot", False) or True]
+        # Si el author menciono a alguien, nos aseguramos de tenerlo fresco en el registry
+        if message.guild is not None:
+            for mu in (message.mentions or []):
+                try:
+                    update_user_in_registry(mu, message.guild, bump_last_seen=False)
+                except Exception:
+                    pass
+
         live_context = _build_live_context(
             question,
             live_members,
@@ -2127,6 +2363,8 @@ async def handle_ask(message: discord.Message):
             web_results=web_results,
             detected_role_name=detected_role_name,
             cross_channel_messages=cross_channel_messages or None,
+            guild_id=(message.guild.id if message.guild is not None else None),
+            mentioned_user_ids=mentioned_ids or None,
         )
 
         lang_directive = LANG_DIRECTIVES.get(user_lang, LANG_DIRECTIVES["es"])
@@ -2367,6 +2605,18 @@ RULESV2_CHANNEL_OPTIONS: list[int] = [
     1451396134105911427,
 ]
 
+# Color del container + del embed efimero (dragon red)
+RULESV2_ACCENT_COLOR: int = 0xC0392B  # 12605483
+
+# Imagen que se muestra en la respuesta efimera al elegir un canal
+RULESV2_SELECT_IMAGE_URL: str = (
+    "https://cdn.discordapp.com/attachments/1451654847408373947/"
+    "1495449735522291842/1776613328731-Photoroom.png"
+)
+
+# Emoji a mostrar antes del titulo (reemplaza al punto medio ・)
+RULESV2_TITLE_EMOJI: str = "<:emoji_57:1495457372691365899>"
+
 
 async def handle_rulesv2(message: discord.Message):
     """Postea el container Components V2 con dropdown de canales.
@@ -2399,7 +2649,7 @@ async def handle_rulesv2(message: discord.Message):
         "components": [
             {
                 "type": 17,
-                "accent_color": 16298488,
+                "accent_color": RULESV2_ACCENT_COLOR,
                 "components": [
                     {
                         "type": 12,
@@ -2409,7 +2659,7 @@ async def handle_rulesv2(message: discord.Message):
                     {
                         "type": 10,
                         "content": (
-                            "## ・Celestials Dragons | Rules\n"
+                            f"## {RULESV2_TITLE_EMOJI} Celestials Dragons | Rules\n"
                             " *** Welcome to Celestials Dragons! Please select your language to read the clan rules. ***\n"
                             "[Discord Terms of Service](https://discord.com/terms)"
                         ),
