@@ -1047,6 +1047,73 @@ def sync_streak_in_registry(user_id: int, streak: int) -> None:
     _save_user_registry(force=False)
 
 
+def _resolve_users_by_name(
+    text: str,
+    guild_id: int,
+    limit: int = 5,
+) -> list[int]:
+    """Busca usuarios del registry que matcheen por username/display_name (case-insensitive).
+
+    Prioriza matches exactos de token, despues substring. Retorna ids unicos (max `limit`).
+    Filtra bots. Solo considera tokens de 3+ caracteres para evitar ruido.
+    """
+    if not text:
+        return []
+    gentry = _user_registry.get(str(guild_id))
+    if not gentry:
+        return []
+    users = gentry.get("users") or {}
+    if not users:
+        return []
+
+    # Extraer tokens del texto, filtrar stopwords comunes y tokens cortos
+    raw_tokens = re.findall(r"[\w\-_.áéíóúñÁÉÍÓÚÑ]+", text.lower())
+    stop = {
+        "que", "quien", "quién", "como", "cómo", "cuando", "cuándo",
+        "donde", "dónde", "sobre", "para", "dime", "dame", "info",
+        "clan", "server", "servidor", "miembro", "miembros", "usuario",
+        "usuarios", "user", "users", "tell", "about", "know", "what",
+        "who", "why", "when", "where", "how", "the", "and", "can",
+        "you", "your", "ask", "please",
+    }
+    tokens = [t for t in raw_tokens if len(t) >= 3 and t not in stop]
+    if not tokens:
+        return []
+
+    exact: list[int] = []
+    sub: list[int] = []
+    for uid_str, entry in users.items():
+        if entry.get("is_bot"):
+            continue
+        uname = (entry.get("username") or "").lower()
+        dname = (entry.get("display_name") or "").lower()
+        uname_tokens = set(re.findall(r"[\w\-_.áéíóúñ]+", uname))
+        dname_tokens = set(re.findall(r"[\w\-_.áéíóúñ]+", dname))
+        all_tokens = uname_tokens | dname_tokens
+        try:
+            uid_int = int(uid_str)
+        except ValueError:
+            continue
+        for tok in tokens:
+            if tok in all_tokens:
+                if uid_int not in exact:
+                    exact.append(uid_int)
+                break
+            if len(tok) >= 4 and (tok in uname or tok in dname):
+                if uid_int not in sub:
+                    sub.append(uid_int)
+                break
+
+    merged: list[int] = []
+    for lst in (exact, sub):
+        for uid in lst:
+            if uid not in merged:
+                merged.append(uid)
+            if len(merged) >= limit:
+                return merged
+    return merged
+
+
 def format_user_registry_entry(user_id: int, guild_id: int | None = None) -> str | None:
     """Formatea la entrada del user para pasarla al LLM. Devuelve None si no existe."""
     uid = str(user_id)
@@ -1645,6 +1712,15 @@ CRITICAL_RULES = (
     "    'no conozco a ese user' si el usuario aparece en [LIVE DATA - Mentioned users] o en el registry.\n"
     "    Si te mencionan a alguien y esta en el registry, tenes su info completa: usala. Si explicitamente\n"
     "    figura como 'NO esta en el registry', recien ahi deci 'ese usuario no esta en el registro del clan'.\n"
+    "15) PROHIBIDO INVENTAR CANALES. Solo podes mencionar canales que aparecen en [LIVE DATA - Server channels]\n"
+    "    o en los datos del servidor (SYSTEM_PROMPT de abajo). NUNCA inventes nombres tipo '#reglas-del-clan',\n"
+    "    '#canal-de-staff', etc., solo porque suena logico. Si el canal no existe, deci 'no encontre ese canal,\n"
+    "    aca no tenemos un canal asi'.\n"
+    "16) TONO SERIO Y DIRECTO. Nada de 'Claro!', 'Por supuesto!', 'No te preocupes!', ni emojis innecesarios,\n"
+    "    ni disclaimers tipo 'espero haberte ayudado'. Respondes al grano. Una oracion siempre que sea posible.\n"
+    "17) IDENTIDAD DEL SERVIDOR: cuando te pregunten 'en que servidor estas', 'que clan es este', 'como se llama el server',\n"
+    "    revisa [LIVE DATA - Server registry] y contesta con el nombre real del guild (normalmente 'Celestials Dragons').\n"
+    "    NO digas que no sabes en que server estas. El campo 'guild' del registry es tu fuente.\n"
     "=========\n"
 )
 
@@ -2217,6 +2293,18 @@ async def handle_ask(message: discord.Message):
     cross_channel_messages: dict[str, list[dict]] = {}
 
     answer = None
+    # Mensaje de "Buscando..." que editamos al final con la respuesta real.
+    searching_text = {
+        "en": "Searching…",
+        "pt": "Buscando…",
+        "es": "Buscando…",
+    }.get(user_lang, "Buscando…")
+    status_message: discord.Message | None = None
+    try:
+        status_message = await message.channel.send(searching_text)
+    except Exception as e:
+        print(f"[ask] could not send status message: {e}")
+
     async with message.channel.typing():
         # -------- Contexto: mensajes recientes del canal --------
         if wants_channel_history:
@@ -2347,6 +2435,15 @@ async def handle_ask(message: discord.Message):
                 except Exception:
                     pass
 
+        # Resolucion fuzzy de usuarios por nombre (sin @). Agrega al registry matches encontrados.
+        if message.guild is not None:
+            fuzzy_matches = _resolve_users_by_name(question, message.guild.id, limit=5)
+            for fuid in fuzzy_matches:
+                if fuid not in mentioned_ids:
+                    mentioned_ids.append(fuid)
+            if fuzzy_matches:
+                print(f"[ask] fuzzy user matches: {fuzzy_matches}")
+
         live_context = _build_live_context(
             question,
             live_members,
@@ -2430,9 +2527,14 @@ async def handle_ask(message: discord.Message):
                 break
 
     if answer is None:
-        await message.channel.send(
-            "⚠️ The bot is temporarily overloaded. Please try again in a few minutes."
-        )
+        overload_msg = "⚠️ The bot is temporarily overloaded. Please try again in a few minutes."
+        if status_message is not None:
+            try:
+                await status_message.edit(content=overload_msg)
+            except Exception:
+                await message.channel.send(overload_msg)
+        else:
+            await message.channel.send(overload_msg)
         history.pop()
         return
 
@@ -2442,8 +2544,15 @@ async def handle_ask(message: discord.Message):
         conversation_history[user_id] = history[-MAX_HISTORY_MESSAGES:]
 
     prefix = f"<@{reply_target.id}> " if reply_target else ""
+    full_text = prefix + answer
 
-    if len(prefix) + len(answer) > 2000:
+    if len(full_text) > 2000:
+        # La respuesta es muy larga: borra el status y manda los chunks.
+        if status_message is not None:
+            try:
+                await status_message.delete()
+            except Exception:
+                pass
         first = True
         remaining = answer
         while remaining:
@@ -2453,7 +2562,14 @@ async def handle_ask(message: discord.Message):
             await message.channel.send((prefix if first else "") + chunk)
             first = False
     else:
-        await message.channel.send(prefix + answer)
+        # Edita el mensaje de "Buscando..." con la respuesta real.
+        if status_message is not None:
+            try:
+                await status_message.edit(content=full_text)
+            except Exception:
+                await message.channel.send(full_text)
+        else:
+            await message.channel.send(full_text)
 
 
 _POLL_TIME_UNITS: dict[str, int] = {
