@@ -4,7 +4,7 @@ import asyncio
 import aiohttp
 from threading import Thread
 from flask import Flask
-from discord import app_commands  # <--- Necesario para los comandos /
+from discord import app_commands
 
 TOKEN = os.environ["DISCORD_TOKEN"]
 APPLICATION_ID = int(os.environ.get("APPLICATION_ID", "0"))
@@ -12,17 +12,14 @@ CHANNEL_PUNISHMENTS = 1497364541024112720
 REQUIRED_ROLE_ID = 1497010109824499923
 ALLOWED_ROLES = {1497009109101183107}
 
-# Configuración del cliente con soporte para comandos de barra (/)
 class CelestialBot(discord.Client):
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
         super().__init__(intents=intents)
-        # Creamos el árbol de comandos
         self.tree = app_commands.CommandTree(self)
 
     async def setup_hook(self):
-        # Esto sincroniza automáticamente tus comandos con Discord al encenderse
         print("[SINCRO] Sincronizando comandos con Discord...")
         await self.tree.sync()
 
@@ -46,29 +43,29 @@ def keep_alive():
     t.start()
 
 # ─────────────────────────────────────────────
-#  C O N T E N T   (Se mantiene igual)
+#  C O N T E N T
 # ─────────────────────────────────────────────
 PUNISHMENTS_CONTENT = {
     "en": (
         "## ◈ CELESTIALS DRAGONS  ╱  SANCTIONS SYSTEM\n"
         "-# ╰─ All sanctions are applied based on severity and member history.\n\n"
-        "**𝐈.  𝗪𝗔𝗥𝗡𝐈𝗡𝗚**\n"
+        "**𝐈.  𝗪𝗔𝗥🇳🇮🇳𝗚**\n"
         "▸ A formal written warning issued by staff.\n"
         "▸ Warnings are logged and __accumulate__ — **three warnings** escalate automatically to a mute.\n"
         "▸ Minor or moderate offenses result in a warn.\n"
         "▸ Sanctions increase in severity with each warn.\n"
         "▸ Reaching 3 warns = temporary blacklist of 1 month.\n"
         "╰─ Regular warns expire after 1 month.\n\n"
-        "**𝐈𝐈.  𝗠𝗨𝗧𝗘**\n"
+        "**𝐈🇮.  𝗠𝗨𝗧𝗘**\n"
         "▸ Temporary removal of communication privileges.\n"
         "╰─ Duration is determined by staff based on __severity__ and prior history.\n\n"
-        "**𝐈𝐈𝐈.  𝗧𝗘𝗠𝗣𝗢𝗥𝗔𝗥𝗬 𝗕𝗔𝗡 / 𝗕𝗟𝗔𝗖𝗞𝗟𝗜𝗦𝗧**\n"
+        "**𝐈𝐈🇮.  𝗧🇪𝗠𝗣𝗢𝗥𝗔𝗥𝗬 𝗕𝗔🇳 / 𝗕🇱𝗔𝗖𝗞𝗟🇮𝗦𝗧**\n"
         "▸ Temporary removal from the server.\n"
         "▸ Applied when a mute has proven __insufficient__ or the offense is of **considerable severity**.\n"
         "▸ First blacklist → 1 month duration.\n"
         "▸ Each new blacklist increases until permanent.\n"
         "╰─ Can be applied without warns if offense is severe.\n\n"
-        "**𝐈𝐕.  𝗣𝗘𝗥𝗠𝗔𝗡𝗘𝗡𝗧 𝗕𝗔𝗡**\n"
+        "**𝐈𝐕.  𝗣🇪𝗥𝗠𝗔🇳🇪🇳𝗧 𝗕𝗔🇳**\n"
         "▸ Permanent removal from the server with __no appeal__.\n"
         "╰─ Reserved for **severe violations** or repeated offenses after all prior sanctions are exhausted.\n\n"
         "**— Strict violations —**\n"
@@ -84,29 +81,29 @@ PUNISHMENTS_CONTENT = {
     "es": (
         "## ◈ CELESTIALS DRAGONS  ╱  SISTEMA DE SANCIONES\n"
         "-# ╰─ Todas las sanciones se aplican según la gravedad y el historial del miembro.\n\n"
-        "**𝐈.  𝗔𝗗𝗩𝗘𝗥𝗧𝗘𝗡𝗖𝗜𝗔**\n"
+        "**𝐈.  𝗔𝗗𝗩🇪𝗥𝗧🇪🇳𝗖𝗜𝗔**\n"
         "▸ Una advertencia formal emitida por el staff.\n"
         "▸ Las advertencias se registran y __acumulan__ — **tres advertencias** escalan automáticamente a un mute.\n"
         "▸ Las infracciones menores o moderadas resultan en una advertencia.\n"
         "▸ Las sanciones aumentan en gravedad con cada advertencia.\n"
         "▸ Alcanzar 3 advertencias = blacklist temporal de 1 mes.\n"
         "╰─ Las advertencias regulares expiran después de 1 mes.\n\n"
-        "**𝐈𝐈.  𝗠𝗨𝗧𝗘**\n"
+        "**𝐈🇮.  𝗠𝗨𝗧🇪**\n"
         "▸ Eliminación temporal de privilegios de comunicación.\n"
         "╰─ La duración es determinada por el staff según la __gravedad__ e historial previo.\n\n"
-        "**𝐈𝐈𝐈.  𝗕𝗔𝗡 𝗧𝗘𝗠𝗣𝗢𝗥𝗔𝗟 / 𝗕𝗟𝗔𝗖𝗞𝗟𝗜𝗦𝗧**\n"
+        "**𝐈𝐈🇮.  𝗕𝗔🇳 𝗧🇪𝗠𝗣🇴𝗥𝗔𝗟 / 𝗕🇱𝗔Ｃ𝗞🇱🇮𝗦𝗧**\n"
         "▸ Expulsión temporal del servidor.\n"
         "▸ Se aplica cuando el mute ha sido __insuficiente__ o la infracción es de **gravedad considerable**.\n"
         "▸ Primera blacklist → 1 mes de duración.\n"
         "▸ Cada nueva blacklist incrementa hasta ser permanente.\n"
         "╰─ Puede aplicarse sin advertencias si la infracción es grave.\n\n"
-        "**𝐈𝐕.  𝗕𝗔𝗡 𝗣𝗘𝗥𝗠𝗔𝗡𝗘𝗡𝗧Ｅ**\n"
+        "**𝐈𝐕.  𝗕Α🇳 𝗣🇪𝗥𝗠𝗔🇳🇪🇳𝗧🇪**\n"
         "▸ Expulsión permanente del servidor __sin apelación__.\n"
         "╰─ Reservado para **violaciones graves** o infracciones repetidas tras agotar todas las sanciones previas.\n\n"
         "**— Violaciones estrictas —**\n"
         "› Filtraciones / Compartir información privada\n"
         "› Doxxing / Exposición de datos personales sensibles\n"
-        "› Grooming / Manipulación hacia menores\n"
+        "› Grooming / Manipulation hacia menores\n"
         "› Bromas sobre CP / Referencias a abuso infantil\n"
         "› Amenazas / Acoso / Extorsión\n"
         "╰─ **Resultan en acción permanente inmediata. Sin excepciones.**\n\n"
@@ -116,23 +113,23 @@ PUNISHMENTS_CONTENT = {
     "pt": (
         "## ◈ CELESTIALS DRAGONS  ╱  SISTEMA DE SANÇÕES\n"
         "-# ╰─ Todas as sanções são aplicadas com base na gravidade e no histórico do membro.\n\n"
-        "**𝐈.  𝗔𝗩𝗜𝗦𝗢**\n"
+        "**𝐈.  𝗔𝗩🇮𝗦🇴**\n"
         "▸ Um aviso formal emitido pela staff.\n"
         "▸ Os avisos son registrados e __acumulam__ — **três avisos** escalam automaticamente para um mute.\n"
         "▸ Infrações menores ou moderadas resultam em um aviso.\n"
         "▸ As sanções aumentam em gravidade com cada aviso.\n"
         "▸ Atingir 3 avisos = blacklist temporária de 1 mês.\n"
         "╰─ Avisos regulares expiram após 1 mês.\n\n"
-        "**𝐈𝐈.  𝗠𝗨𝗧𝗘**\n"
+        "**𝐈🇮.  𝗠𝗨𝗧🇪**\n"
         "▸ Remoção temporária dos privilégios de comunicação.\n"
         "╰─ A duração é determinada pela staff com base na __gravidade__ e no histórico anterior.\n\n"
-        "**𝐈𝐈𝐈.  𝗕𝗔𝗡 𝗧Ｅ𝗠𝗣ＯＲＡＲＩＯ / 𝗕𝗟ＡＣ𝗞𝗟Ｉ𝗦𝗧**\n"
+        "**𝐈𝐈🇮.  𝗕𝗔🇳 𝗧🇪𝗠𝗣🇴𝗥🇦́𝗥🇮🇴 / 𝗕🇱𝗔Ｃ軽🇱🇮𝗦𝗧**\n"
         "▸ Remoção temporária do servidor.\n"
         "▸ Aplicado quando o mute foi __insuficiente__ ou a infração é de **gravidade considerável**.\n"
         "▸ Primeira blacklist → 1 mês de duração.\n"
         "▸ Cada nova blacklist aumenta até ser permanente.\n"
         "╰─ Pode ser aplicada sem avisos se a infração for grave.\n\n"
-        "**𝐈𝐕.  𝗕package 𝗣𝗘𝗥𝗠𝗔𝗡𝗘ＮＴＥ**\n"
+        "**𝐈𝐕.  𝗕package 𝗣🇪𝗥𝗠🇦🇳🇪🇳𝗧🇪**\n"
         "▸ Remoção permanente do servidor sem __apelação__.\n"
         "╰─ Reservado para **violações graves** ou infrações repetidas após o esgotamento de todas as sanções.\n\n"
         "**— Violações estritas —**\n"
@@ -148,7 +145,7 @@ PUNISHMENTS_CONTENT = {
 }
 
 # ─────────────────────────────────────────────
-#  P A Y L O A D S   (Se mantienen igual)
+#  P A Y L O A D S
 # ─────────────────────────────────────────────
 LANG_OPTIONS = [
     {"label": "English", "value": "en", "emoji": {"id": "1499826848035766454", "name": "emoji_3"}},
@@ -218,7 +215,7 @@ def build_punishment_payload(lang: str) -> dict:
     }
 
 # ─────────────────────────────────────────────
-#  A P I   H E L P E R S   (Se mantienen igual)
+#  A P I   H E L P E R S
 # ─────────────────────────────────────────────
 async def send_v2(channel_id: int, payload: dict):
     url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
@@ -263,22 +260,21 @@ def has_permission(member: discord.Member) -> bool:
     return any(role.id in ALLOWED_ROLES for role in member.roles)
 
 # ─────────────────────────────────────────────
-#  S L A S H   C O M M A N D S   ( / )
+#  S L A S H   C O M M A N D S
 # ─────────────────────────────────────────────
 @client.tree.command(name="setuppunishments", description="Configura el sistema de sanciones en el canal asignado.")
 async def setuppunishments(interaction: discord.Interaction):
-    # Verificamos permisos del usuario que usó el comando
     if not has_permission(interaction.user):
         await interaction.response.send_message("❌ No tenés permisos para usar este comando.", ephemeral=True)
         return
 
-    # Avisamos a Discord que procesamos la interacción de forma efímera
     await interaction.response.send_message("⌛ Configurando el panel...", ephemeral=True)
 
     error = await send_v2(CHANNEL_PUNISHMENTS, build_accept_payload())
     if error:
-        await interaction.edit_original_response(content=f"❌ **Error al enviar el mensaje:**\n```{error}
-```")
+        msg = f"❌ **Error al enviar el mensaje:**\n```{error}
+```"
+        await interaction.edit_original_response(content=msg)
     else:
         await interaction.edit_original_response(content="✅ Panel de sanciones enviado correctamente.")
 
@@ -287,7 +283,6 @@ async def setuppunishments(interaction: discord.Interaction):
 # ─────────────────────────────────────────────
 @client.event
 async def on_interaction(interaction: discord.Interaction):
-    # Si la interacción viene de nuestro comando de barra, lo ignoramos acá (ya lo maneja la función de arriba)
     if interaction.type == discord.InteractionType.application_command:
         return
 
