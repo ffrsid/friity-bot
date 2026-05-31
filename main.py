@@ -56,16 +56,16 @@ PUNISHMENTS_CONTENT = {
         "▸ Sanctions increase in severity with each warn.\n"
         "▸ Reaching 3 warns = temporary blacklist of 1 month.\n"
         "╰─ Regular warns expire after 1 month.\n\n"
-        "**𝐈🇮.  𝗠𝗨𝗧𝗘**\n"
+        "**𝐈🇮.  𝗠𝗨𝗧🇪**\n"
         "▸ Temporary removal of communication privileges.\n"
         "╰─ Duration is determined by staff based on __severity__ and prior history.\n\n"
-        "**𝐈𝐈🇮.  𝗧🇪𝗠𝗣𝗢𝗥𝗔𝗥𝗬 𝗕𝗔🇳 / 𝗕🇱𝗔𝗖𝗞𝗟🇮𝗦𝗧**\n"
+        "**𝐈𝐈🇮.  𝗧🇪𝗠𝗣🇴𝗥🇦𝗥𝗬 𝗕🇦🇳 / 𝗕🇱🇦🇨𝗞🇱🇮𝗦𝗧**\n"
         "▸ Temporary removal from the server.\n"
         "▸ Applied when a mute has proven __insufficient__ or the offense is of **considerable severity**.\n"
         "▸ First blacklist → 1 month duration.\n"
         "▸ Each new blacklist increases until permanent.\n"
         "╰─ Can be applied without warns if offense is severe.\n\n"
-        "**𝐈𝐕.  𝗣🇪𝗥𝗠𝗔🇳🇪🇳𝗧 𝗕𝗔🇳**\n"
+        "**𝐈𝐕.  𝗣🇪𝗥𝗠🇦🇳🇪🇳𝗧 𝗕🇦🇳**\n"
         "▸ Permanent removal from the server with __no appeal__.\n"
         "╰─ Reserved for **severe violations** or repeated offenses after all prior sanctions are exhausted.\n\n"
         "**— Strict violations —**\n"
@@ -81,7 +81,7 @@ PUNISHMENTS_CONTENT = {
     "es": (
         "## ◈ CELESTIALS DRAGONS  ╱  SISTEMA DE SANCIONES\n"
         "-# ╰─ Todas las sanciones se aplican según la gravedad y el historial del miembro.\n\n"
-        "**𝐈.  𝗔𝗗𝗩🇪𝗥𝗧🇪🇳𝗖𝗜𝗔**\n"
+        "**𝐈.  𝗔🇩🇻🇪🇷𝗧🇪🇳𝗖𝗜🇦**\n"
         "▸ Una advertencia formal emitida por el staff.\n"
         "▸ Las advertencias se registran y __acumulan__ — **tres advertencias** escalan automáticamente a un mute.\n"
         "▸ Las infracciones menores o moderadas resultan en una advertencia.\n"
@@ -91,19 +91,19 @@ PUNISHMENTS_CONTENT = {
         "**𝐈🇮.  𝗠𝗨𝗧🇪**\n"
         "▸ Eliminación temporal de privilegios de comunicación.\n"
         "╰─ La duración es determinada por el staff según la __gravedad__ e historial previo.\n\n"
-        "**𝐈𝐈🇮.  𝗕𝗔🇳 𝗧🇪𝗠𝗣🇴𝗥𝗔𝗟 / 𝗕🇱𝗔Ｃ𝗞🇱🇮𝗦𝗧**\n"
+        "**𝐈𝐈🇮.  𝗕🇦🇳 𝗧🇪🇲𝗣🇴𝗥🇦𝗟 / 𝗕🇱🇦🇨𝗞🇱🇮𝗦𝗧**\n"
         "▸ Expulsión temporal del servidor.\n"
         "▸ Se aplica cuando el mute ha sido __insuficiente__ o la infracción es de **gravedad considerable**.\n"
         "▸ Primera blacklist → 1 mes de duración.\n"
         "▸ Cada nueva blacklist incrementa hasta ser permanente.\n"
         "╰─ Puede aplicarse sin advertencias si la infracción es grave.\n\n"
-        "**𝐈𝐕.  𝗕Α🇳 𝗣🇪𝗥𝗠𝗔🇳🇪🇳𝗧🇪**\n"
+        "**𝐈𝐕.  𝗕🇦🇳 𝗣🇪🇷𝗠🇦🇳🇪🇳𝗧🇪**\n"
         "▸ Expulsión permanente del servidor __sin apelación__.\n"
         "╰─ Reservado para **violaciones graves** o infracciones repetidas tras agotar todas las sanciones previas.\n\n"
         "**— Violaciones estrictas —**\n"
         "› Filtraciones / Compartir información privada\n"
         "› Doxxing / Exposición de datos personales sensibles\n"
-        "› Grooming / Manipulation hacia menores\n"
+        "› Grooming / Manipulación hacia menores\n"
         "› Bromas sobre CP / Referencias a abuso infantil\n"
         "› Amenazas / Acoso / Extorsión\n"
         "╰─ **Resultan en acción permanente inmediata. Sin excepciones.**\n\n"
@@ -123,18 +123,18 @@ PUNISHMENTS_CONTENT = {
         "**𝐈🇮.  𝗠𝗨𝗧🇪**\n"
         "▸ Remoção temporária dos privilégios de comunicação.\n"
         "╰─ A duração é determinada pela staff com base na __gravidade__ e no histórico anterior.\n\n"
-        "**𝐈𝐈🇮.  𝗕𝗔🇳 𝗧🇪𝗠𝗣🇴𝗥🇦́𝗥🇮🇴 / 𝗕🇱𝗔Ｃ軽🇱🇮𝗦𝗧**\n"
+        "**𝐈𝐈🇮.  𝗕🇦🇳 𝗧🇪🇲𝗣🇴𝗥🇦́𝗥🇮🇴 / 𝗕🇱🇦🇨𝗞🇱🇮𝗦𝗧**\n"
         "▸ Remoção temporária do servidor.\n"
-        "▸ Aplicado quando o mute foi __insuficiente__ ou a infração é de **gravidade considerável**.\n"
+        "▸ Aplicado quando o mute foi __insuficiente__ ou a infracão é de **gravidade considerável**.\n"
         "▸ Primeira blacklist → 1 mês de duração.\n"
         "▸ Cada nova blacklist aumenta até ser permanente.\n"
         "╰─ Pode ser aplicada sem avisos se a infração for grave.\n\n"
-        "**𝐈𝐕.  𝗕package 𝗣🇪𝗥𝗠🇦🇳🇪🇳𝗧🇪**\n"
+        "**𝐈𝐕.  𝗕🇦🇳 𝗣🇪🇷𝗠🇦🇳🇪🇳𝗧🇪**\n"
         "▸ Remoção permanente do servidor sem __apelação__.\n"
         "╰─ Reservado para **violações graves** ou infrações repetidas após o esgotamento de todas as sanções.\n\n"
         "**— Violações estritas —**\n"
         "› Vazamentos / Compartilhamento de informações privadas\n"
-        "› Doxxing / Exposição de dados pessoais sensíveis\n"
+        "› Doxxing / Exposição de datos pessoais sensíveis\n"
         "› Grooming / Manipulação de menores\n"
         "› Piadas sobre CP / Referências a abuso infantil\n"
         "› Ameaças / Assédio / Extorsão\n"
@@ -218,7 +218,7 @@ def build_punishment_payload(lang: str) -> dict:
 #  A P I   H E L P E R S
 # ─────────────────────────────────────────────
 async def send_v2(channel_id: int, payload: dict):
-    url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+    url = f"[https://discord.com/api/v10/channels/](https://discord.com/api/v10/channels/){channel_id}/messages"
     headers = {"Authorization": f"Bot {TOKEN}", "Content-Type": "application/json"}
     async with aiohttp.ClientSession() as session:
         async with session.post(url, json=payload, headers=headers) as resp:
@@ -228,22 +228,22 @@ async def send_v2(channel_id: int, payload: dict):
             return None
 
 async def defer_update(interaction_id: str, token: str):
-    url = f"https://discord.com/api/v10/interactions/{interaction_id}/{token}/callback"
+    url = f"[https://discord.com/api/v10/interactions/](https://discord.com/api/v10/interactions/){interaction_id}/{token}/callback"
     async with aiohttp.ClientSession() as session:
         await session.post(url, json={"type": 6}, headers={"Content-Type": "application/json"})
 
 async def edit_original(token: str, payload: dict):
-    url = f"https://discord.com/api/v10/webhooks/{APPLICATION_ID}/{token}/messages/@original"
+    url = f"[https://discord.com/api/v10/webhooks/](https://discord.com/api/v10/webhooks/){APPLICATION_ID}/{token}/messages/@original"
     async with aiohttp.ClientSession() as session:
         await session.patch(url, json=payload, headers={"Content-Type": "application/json"})
 
 async def send_followup_ephemeral(token: str, content: str):
-    url = f"https://discord.com/api/v10/webhooks/{APPLICATION_ID}/{token}"
+    url = f"[https://discord.com/api/v10/webhooks/](https://discord.com/api/v10/webhooks/){APPLICATION_ID}/{token}"
     async with aiohttp.ClientSession() as session:
         await session.post(url, json={"content": content, "flags": 64}, headers={"Content-Type": "application/json"})
 
 async def update_interaction(interaction_id: str, token: str, payload: dict):
-    url = f"https://discord.com/api/v10/interactions/{interaction_id}/{token}/callback"
+    url = f"[https://discord.com/api/v10/interactions/](https://discord.com/api/v10/interactions/){interaction_id}/{token}/callback"
     async with aiohttp.ClientSession() as session:
         await session.post(url, json={"type": 7, "data": payload}, headers={"Content-Type": "application/json"})
 
@@ -272,9 +272,8 @@ async def setuppunishments(interaction: discord.Interaction):
 
     error = await send_v2(CHANNEL_PUNISHMENTS, build_accept_payload())
     if error:
-        msg = f"❌ **Error al enviar el mensaje:**\n```{error}
-```"
-        await interaction.edit_original_response(content=msg)
+        # Simplificado completamente para evitar errores de sintaxis
+        await interaction.edit_original_response(content="❌ Error al enviar el panel v2.")
     else:
         await interaction.edit_original_response(content="✅ Panel de sanciones enviado correctamente.")
 
