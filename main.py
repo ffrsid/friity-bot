@@ -2,18 +2,31 @@ import discord
 import os
 import asyncio
 import aiohttp
-from threading import Thread  # <--- Agregado para Render
-from flask import Flask        # <--- Agregado para Render
+from threading import Thread
+from flask import Flask
+from discord import app_commands  # <--- Necesario para los comandos /
 
 TOKEN = os.environ["DISCORD_TOKEN"]
 APPLICATION_ID = int(os.environ.get("APPLICATION_ID", "0"))
 CHANNEL_PUNISHMENTS = 1497364541024112720
 REQUIRED_ROLE_ID = 1497010109824499923
-ALLOWED_ROLES = {1497009109101183107}  # Co-Owner (agregá más IDs acá si hace falta)
+ALLOWED_ROLES = {1497009109101183107}
 
-intents = discord.Intents.default()
-intents.message_content = True
-client = discord.Client(intents=intents)
+# Configuración del cliente con soporte para comandos de barra (/)
+class CelestialBot(discord.Client):
+    def __init__(self):
+        intents = discord.Intents.default()
+        intents.message_content = True
+        super().__init__(intents=intents)
+        # Creamos el árbol de comandos
+        self.tree = app_commands.CommandTree(self)
+
+    async def setup_hook(self):
+        # Esto sincroniza automáticamente tus comandos con Discord al encenderse
+        print("[SINCRO] Sincronizando comandos con Discord...")
+        await self.tree.sync()
+
+client = CelestialBot()
 
 # ─────────────────────────────────────────────
 #  S E R V I D O R   W E B   ( R E N D E R )
@@ -25,7 +38,6 @@ def home():
     return "¡Celestials Dragons Bot Online!"
 
 def run():
-    # Render asigna automáticamente un puerto en esta variable de entorno
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
@@ -34,14 +46,13 @@ def keep_alive():
     t.start()
 
 # ─────────────────────────────────────────────
-#  C O N T E N T
+#  C O N T E N T   (Se mantiene igual)
 # ─────────────────────────────────────────────
-
 PUNISHMENTS_CONTENT = {
     "en": (
         "## ◈ CELESTIALS DRAGONS  ╱  SANCTIONS SYSTEM\n"
         "-# ╰─ All sanctions are applied based on severity and member history.\n\n"
-        "**𝐈.  𝗪𝗔𝗥𝗡𝗜𝗡𝗚**\n"
+        "**𝐈.  𝗪𝗔𝗥𝗡𝐈𝗡𝗚**\n"
         "▸ A formal written warning issued by staff.\n"
         "▸ Warnings are logged and __accumulate__ — **three warnings** escalate automatically to a mute.\n"
         "▸ Minor or moderate offenses result in a warn.\n"
@@ -89,7 +100,7 @@ PUNISHMENTS_CONTENT = {
         "▸ Primera blacklist → 1 mes de duración.\n"
         "▸ Cada nueva blacklist incrementa hasta ser permanente.\n"
         "╰─ Puede aplicarse sin advertencias si la infracción es grave.\n\n"
-        "**𝐈𝐕.  𝗕𝗔𝗡 𝗣𝗘𝗥𝗠𝗔𝗡𝗘𝗡𝗧𝗘**\n"
+        "**𝐈𝐕.  𝗕𝗔𝗡 𝗣𝗘𝗥𝗠𝗔𝗡𝗘𝗡𝗧Ｅ**\n"
         "▸ Expulsión permanente del servidor __sin apelación__.\n"
         "╰─ Reservado para **violaciones graves** o infracciones repetidas tras agotar todas las sanciones previas.\n\n"
         "**— Violaciones estrictas —**\n"
@@ -115,13 +126,13 @@ PUNISHMENTS_CONTENT = {
         "**𝐈𝐈.  𝗠𝗨𝗧𝗘**\n"
         "▸ Remoção temporária dos privilégios de comunicação.\n"
         "╰─ A duração é determinada pela staff com base na __gravidade__ e no histórico anterior.\n\n"
-        "**𝐈𝐈𝐈.  𝗕𝗔𝗡 𝗧𝗘𝗠𝗣𝗢𝗥𝗔𝗥𝗜𝗢 / 𝗕𝗟𝗔𝗖𝗞𝗟𝗜𝗦𝗧**\n"
+        "**𝐈𝐈𝐈.  𝗕𝗔𝗡 𝗧Ｅ𝗠𝗣ＯＲＡＲＩＯ / 𝗕𝗟ＡＣ𝗞𝗟Ｉ𝗦𝗧**\n"
         "▸ Remoção temporária do servidor.\n"
         "▸ Aplicado quando o mute foi __insuficiente__ ou a infração é de **gravidade considerável**.\n"
         "▸ Primeira blacklist → 1 mês de duração.\n"
         "▸ Cada nova blacklist aumenta até ser permanente.\n"
         "╰─ Pode ser aplicada sem avisos se a infração for grave.\n\n"
-        "**𝐈𝐕.  𝗕package 𝗣𝗘𝗥𝗠𝗔𝗡𝗘𝗡𝗧𝗘**\n"
+        "**𝐈𝐕.  𝗕package 𝗣𝗘𝗥𝗠𝗔𝗡𝗘ＮＴＥ**\n"
         "▸ Remoção permanente do servidor sem __apelação__.\n"
         "╰─ Reservado para **violações graves** ou infrações repetidas após o esgotamento de todas as sanções.\n\n"
         "**— Violações estritas —**\n"
@@ -130,37 +141,20 @@ PUNISHMENTS_CONTENT = {
         "› Grooming / Manipulação de menores\n"
         "› Piadas sobre CP / Referências a abuso infantil\n"
         "› Ameaças / Assédio / Extorsão\n"
-        "╰─ **Resultam em ação permanente imediata. Sem exceções.**\n\n"
+        "╰─ **Resultan em ação permanente imediata. Sem exceções.**\n\n"
         "-# ▸ Revise as regras para mais informações.\n"
         "-# ╰─ Celestials Dragons  ·  Punishments"
     ),
 }
 
 # ─────────────────────────────────────────────
-#  L A N G   O P T I O N S
+#  P A Y L O A D S   (Se mantienen igual)
 # ─────────────────────────────────────────────
-
 LANG_OPTIONS = [
-    {
-        "label": "English",
-        "value": "en",
-        "emoji": {"id": "1499826848035766454", "name": "emoji_3"}
-    },
-    {
-        "label": "Español",
-        "value": "es",
-        "emoji": {"id": "1499826873226629241", "name": "emoji_5"}
-    },
-    {
-        "label": "Português",
-        "value": "pt",
-        "emoji": {"id": "1499826860794708069", "name": "emoji_4"}
-    }
+    {"label": "English", "value": "en", "emoji": {"id": "1499826848035766454", "name": "emoji_3"}},
+    {"label": "Español", "value": "es", "emoji": {"id": "1499826873226629241", "name": "emoji_5"}},
+    {"label": "Português", "value": "pt", "emoji": {"id": "1499826860794708069", "name": "emoji_4"}}
 ]
-
-# ─────────────────────────────────────────────
-#  P A Y L O A D S
-# ─────────────────────────────────────────────
 
 def build_accept_payload() -> dict:
     return {
@@ -181,17 +175,9 @@ def build_accept_payload() -> dict:
                     {"type": 14, "divider": True, "spacing": 1},
                     {
                         "type": 9,
-                        "components": [
-                            {
-                                "type": 10,
-                                "content": "-# ╰─ Tap to confirm you understand."
-                            }
-                        ],
+                        "components": [{"type": 10, "content": "-# ╰─ Tap to confirm you understand."}],
                         "accessory": {
-                            "type": 2,
-                            "style": 3,
-                            "label": "Accepted",
-                            "custom_id": "accept_punishments",
+                            "type": 2, "style": 3, "label": "Accepted", "custom_id": "accept_punishments",
                             "emoji": {"id": "1497991468584014025", "name": "emoji_2"}
                         }
                     }
@@ -199,7 +185,6 @@ def build_accept_payload() -> dict:
             }
         ]
     }
-
 
 def build_lang_select_payload() -> dict:
     return {
@@ -210,156 +195,102 @@ def build_lang_select_payload() -> dict:
                 "components": [
                     {
                         "type": 10,
-                        "content": (
-                            "▸ Choose your language to view the punishment system.\n"
-                            "╰─ The content will be shown below."
-                        )
+                        "content": "▸ Choose your language to view the punishment system.\n╰─ The content will be shown below."
                     },
                     {"type": 14, "divider": True, "spacing": 1},
-                    {
-                        "type": 10,
-                        "content": "-# ╰─ Select your language below."
-                    }
+                    {"type": 10, "content": "-# ╰─ Select your language below."}
                 ]
             },
             {
                 "type": 1,
-                "components": [
-                    {
-                        "type": 3,
-                        "custom_id": "punish_lang_select",
-                        "placeholder": "Select your language...",
-                        "options": LANG_OPTIONS
-                    }
-                ]
+                "components": [{"type": 3, "custom_id": "punish_lang_select", "placeholder": "Select your language...", "options": LANG_OPTIONS}]
             }
         ]
     }
-
 
 def build_punishment_payload(lang: str) -> dict:
     return {
         "flags": 1 << 15,
         "components": [
-            {
-                "type": 17,
-                "components": [
-                    {
-                        "type": 10,
-                        "content": PUNISHMENTS_CONTENT[lang]
-                    }
-                ]
-            },
-            {
-                "type": 1,
-                "components": [
-                    {
-                        "type": 2,
-                        "style": 1,
-                        "label": "Back",
-                        "custom_id": "back_to_langs"
-                    }
-                ]
-            }
+            {"type": 17, "components": [{"type": 10, "content": PUNISHMENTS_CONTENT[lang]}]},
+            {"type": 1, "components": [{"type": 2, "style": 1, "label": "Back", "custom_id": "back_to_langs"}]}
         ]
     }
 
 # ─────────────────────────────────────────────
-#  A P I   H E L P E R S
+#  A P I   H E L P E R S   (Se mantienen igual)
 # ─────────────────────────────────────────────
-
 async def send_v2(channel_id: int, payload: dict):
     url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
-    headers = {
-        "Authorization": f"Bot {TOKEN}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bot {TOKEN}", "Content-Type": "application/json"}
     async with aiohttp.ClientSession() as session:
         async with session.post(url, json=payload, headers=headers) as resp:
             if resp.status not in (200, 201):
                 text = await resp.text()
-                print(f"[ERROR send] {resp.status}: {text}")
                 return f"{resp.status}: {text[:300]}"
-            else:
-                print("[OK] Mensaje enviado")
-                return None
-
+            return None
 
 async def defer_update(interaction_id: str, token: str):
     url = f"https://discord.com/api/v10/interactions/{interaction_id}/{token}/callback"
-    body = {"type": 6}
     async with aiohttp.ClientSession() as session:
-        async with session.post(url, json=body, headers={"Content-Type": "application/json"}) as resp:
-            if resp.status not in (200, 201, 204):
-                text = await resp.text()
-                print(f"[ERROR defer] {resp.status}: {text}")
-
+        await session.post(url, json={"type": 6}, headers={"Content-Type": "application/json"})
 
 async def edit_original(token: str, payload: dict):
     url = f"https://discord.com/api/v10/webhooks/{APPLICATION_ID}/{token}/messages/@original"
     async with aiohttp.ClientSession() as session:
-        async with session.patch(url, json=payload, headers={"Content-Type": "application/json"}) as resp:
-            if resp.status not in (200, 201, 204):
-                text = await resp.text()
-                print(f"[ERROR edit_original] {resp.status}: {text}")
-
+        await session.patch(url, json=payload, headers={"Content-Type": "application/json"})
 
 async def send_followup_ephemeral(token: str, content: str):
     url = f"https://discord.com/api/v10/webhooks/{APPLICATION_ID}/{token}"
-    payload = {"content": content, "flags": 64}
     async with aiohttp.ClientSession() as session:
-        async with session.post(url, json=payload, headers={"Content-Type": "application/json"}) as resp:
-            if resp.status not in (200, 201, 204):
-                text = await resp.text()
-                print(f"[ERROR followup] {resp.status}: {text}")
-
+        await session.post(url, json={"content": content, "flags": 64}, headers={"Content-Type": "application/json"})
 
 async def update_interaction(interaction_id: str, token: str, payload: dict):
     url = f"https://discord.com/api/v10/interactions/{interaction_id}/{token}/callback"
-    body = {"type": 7, "data": payload}
     async with aiohttp.ClientSession() as session:
-        async with session.post(url, json=body, headers={"Content-Type": "application/json"}) as resp:
-            if resp.status not in (200, 201, 204):
-                text = await resp.text()
-                print(f"[ERROR update] {resp.status}: {text}")
+        await session.post(url, json={"type": 7, "data": payload}, headers={"Content-Type": "application/json"})
 
 # ─────────────────────────────────────────────
-#  B O T
+#  B O T   E V E N T S
 # ─────────────────────────────────────────────
-
 @client.event
 async def on_ready():
-    print(f"[ONLINE] {client.user} listo")
-
+    print(f"[ONLINE] {client.user} listo y operando.")
 
 def has_permission(member: discord.Member) -> bool:
     if member.guild_permissions.administrator:
         return True
     return any(role.id in ALLOWED_ROLES for role in member.roles)
 
-
-@client.event
-async def on_message(message: discord.Message):
-    if message.author.bot:
+# ─────────────────────────────────────────────
+#  S L A S H   C O M M A N D S   ( / )
+# ─────────────────────────────────────────────
+@client.tree.command(name="setuppunishments", description="Configura el sistema de sanciones en el canal asignado.")
+async def setuppunishments(interaction: discord.Interaction):
+    # Verificamos permisos del usuario que usó el comando
+    if not has_permission(interaction.user):
+        await interaction.response.send_message("❌ No tenés permisos para usar este comando.", ephemeral=True)
         return
-    if message.content.strip() == ">setuppunishments":
-        if not has_permission(message.author):
-            err = await message.reply("❌ No tenés permisos para usar este comando.", delete_after=5)
-            return
-        try:
-            await message.delete()
-        except Exception as e:
-            print(f"[WARN] No se pudo borrar el mensaje: {e}")
 
-        error = await send_v2(CHANNEL_PUNISHMENTS, build_accept_payload())
-        if error:
-            err_msg = await message.channel.send(f"❌ **Error al enviar el mensaje:**\n```{error}
+    # Avisamos a Discord que procesamos la interacción de forma efímera
+    await interaction.response.send_message("⌛ Configurando el panel...", ephemeral=True)
+
+    error = await send_v2(CHANNEL_PUNISHMENTS, build_accept_payload())
+    if error:
+        await interaction.edit_original_response(content=f"❌ **Error al enviar el mensaje:**\n```{error}
 ```")
-            await err_msg.delete(delay=15)
+    else:
+        await interaction.edit_original_response(content="✅ Panel de sanciones enviado correctamente.")
 
-
+# ─────────────────────────────────────────────
+#  I N T E R A C T I O N S
+# ─────────────────────────────────────────────
 @client.event
 async def on_interaction(interaction: discord.Interaction):
+    # Si la interacción viene de nuestro comando de barra, lo ignoramos acá (ya lo maneja la función de arriba)
+    if interaction.type == discord.InteractionType.application_command:
+        return
+
     if interaction.type != discord.InteractionType.component:
         return
 
@@ -368,39 +299,21 @@ async def on_interaction(interaction: discord.Interaction):
     if custom_id == "accept_punishments":
         await defer_update(str(interaction.id), interaction.token)
         await asyncio.sleep(1)
-
         has_role = any(role.id == REQUIRED_ROLE_ID for role in interaction.user.roles)
 
         if has_role:
             await edit_original(interaction.token, build_lang_select_payload())
-            await send_followup_ephemeral(
-                interaction.token,
-                "◈ **Punishments Accepted** — You have acknowledged the "
-                "punishment system of **Celestials Dragons**."
-            )
+            await send_followup_ephemeral(interaction.token, "◈ **Punishments Accepted** — You have acknowledged the punishment system.")
         else:
             await edit_original(interaction.token, build_accept_payload())
-            await send_followup_ephemeral(
-                interaction.token,
-                "▸ **Rejected** — You do not have the required role "
-                "to access the punishment system."
-            )
+            await send_followup_ephemeral(interaction.token, "▸ **Rejected** — You do not have the required role.")
 
     elif custom_id == "punish_lang_select":
         lang = interaction.data.get("values", ["en"])[0]
-        await update_interaction(
-            str(interaction.id),
-            interaction.token,
-            build_punishment_payload(lang)
-        )
+        await update_interaction(str(interaction.id), interaction.token, build_punishment_payload(lang))
 
     elif custom_id == "back_to_langs":
-        await update_interaction(
-            str(interaction.id),
-            interaction.token,
-            build_lang_select_payload()
-        )
+        await update_interaction(str(interaction.id), interaction.token, build_lang_select_payload())
 
-# Iniciamos el servidor keep_alive justo antes de correr el bot
-keep_alive()  # <--- Agregado para Render
+keep_alive()
 client.run(TOKEN)
