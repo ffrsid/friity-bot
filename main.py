@@ -18,8 +18,8 @@ from flask import Flask
 #  C O N F I G
 # ─────────────────────────────────────────────
 
-DISCORD_BOT_TOKEN = "MTQ4NDk3NTUyMzUxMDc0NzM0OA.G6O08h.bfo5gPVmDCONUQGlWmJaO998woppxz0X29rUZo"
-GROQ_API_KEY      = "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"
+DISCORD_BOT_TOKEN = "MTQ4NDk3NTUyMzUxMDc0NzM0OA.GaI6Z0.wf83bVs7roHGV2z25HBHLJ77J1K3Qa0c-FI5H4"
+GROQ_API_KEY      = os.environ.get("GROQ_API_KEY", "")
 APPLICATION_ID    = int(os.environ.get("APPLICATION_ID", "1484975523510747348"))
 GUILD_ID          = 1497005878153449634
 
