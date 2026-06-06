@@ -126,6 +126,16 @@ async def ia_edit(interaction, payload):
     async with aiohttp.ClientSession() as s:
         await s.patch(url, json=payload, headers={"Content-Type": "application/json"})
 
+async def ia_modal(interaction, custom_id, title, components):
+    url = f"{DISCORD_API_BASE}/interactions/{interaction.id}/{interaction.token}/callback"
+    async with aiohttp.ClientSession() as s:
+        await s.post(url, json={"type": 9, "data": {"custom_id": custom_id, "title": title, "components": components}}, headers={"Content-Type": "application/json"})
+
+async def ia_followup_rich(interaction, payload):
+    url = f"{DISCORD_API_BASE}/webhooks/{APPLICATION_ID}/{interaction.token}"
+    async with aiohttp.ClientSession() as s:
+        await s.post(url, json=payload, headers={"Content-Type": "application/json"})
+
 # ─────────────────────────────────────────────
 #  E M B E D   P A Y L O A D S
 # ─────────────────────────────────────────────
@@ -413,6 +423,159 @@ SECTION_MAP = {
     "overview": "launch_ov",
 }
 
+# ─────────────────────────────────────────────
+#  E M B E D   B U I L D E R
+# ─────────────────────────────────────────────
+
+COLOR_PRESETS = [
+    {"label": "Blurple",  "value": "5865F2"},
+    {"label": "Red",      "value": "ED4245"},
+    {"label": "Green",    "value": "57F287"},
+    {"label": "Yellow",   "value": "FEE75C"},
+    {"label": "Orange",   "value": "E67E22"},
+    {"label": "Pink",     "value": "EB459E"},
+    {"label": "White",    "value": "FFFFFF"},
+    {"label": "Black",    "value": "000000"},
+    {"label": "Aqua",     "value": "1ABC9C"},
+    {"label": "Purple",   "value": "9B59B6"},
+]
+
+embed_builders = {}
+
+def new_embed_state():
+    return {"title": None, "description": None, "color": 0x5865F2, "color_name": "Blurple",
+            "image_url": None, "thumbnail_url": None, "footer_text": None,
+            "channel_id": None, "json_mode": False, "raw_json": None}
+
+def _trunc(s, n):
+    if not s: return "*(not set)*"
+    return (s[:n] + "…") if len(s) > n else s
+
+def build_embed_builder(state):
+    t = _trunc(state["title"], 40)
+    d = _trunc(state["description"], 50)
+    c = state["color_name"]
+    ch = f"<#{state['channel_id']}>" if state["channel_id"] else "*(not set)*"
+    img = "✅" if state["image_url"] else "❌"
+    thumb = "✅" if state["thumbnail_url"] else "❌"
+    ft = _trunc(state["footer_text"], 30)
+    mode = "📋 JSON (discohook)" if state["json_mode"] else "✏️ Manual"
+
+    status = (
+        "## ◈ Create Custom Embed\n"
+        "-# ╰─ Build your embed step by step.\n\n"
+        f"▸ **Title:** {t}\n"
+        f"▸ **Description:** {d}\n"
+        f"▸ **Color:** #{state['color']:06X} ({c})\n"
+        f"▸ **Channel:** {ch}\n"
+        f"▸ **Image:** {img}  ·  **Thumbnail:** {thumb}\n"
+        f"▸ **Footer:** {ft}\n"
+        f"▸ **Mode:** {mode}"
+    )
+
+    return {"flags": COMPONENTS_V2_FLAG | 64, "components": [
+        {"type": 17, "accent_color": state["color"], "components": [
+            {"type": 10, "content": status},
+            {"type": 14, "divider": True, "spacing": 1},
+            {"type": 10, "content": "-# ╰─ Celestials Dragons  ·  Embed Builder"},
+        ]},
+        {"type": 1, "components": [{"type": 3, "custom_id": "ce:color", "placeholder": "🎨 Select Color", "options": COLOR_PRESETS}]},
+        {"type": 1, "components": [{"type": 8, "custom_id": "ce:channel", "placeholder": "📌 Select Channel", "channel_types": [0]}]},
+        {"type": 1, "components": [
+            {"type": 2, "style": 1, "label": "Edit Text", "custom_id": "ce:text"},
+            {"type": 2, "style": 1, "label": "Images", "custom_id": "ce:image"},
+            {"type": 2, "style": 2, "label": "Paste JSON", "custom_id": "ce:json"},
+        ]},
+        {"type": 1, "components": [
+            {"type": 2, "style": 3, "label": "Send", "custom_id": "ce:send"},
+            {"type": 2, "style": 2, "label": "Preview", "custom_id": "ce:preview"},
+            {"type": 2, "style": 4, "label": "Back", "custom_id": "ce:back"},
+        ]},
+    ]}
+
+def build_final_embed(state):
+    if state.get("json_mode") and state.get("raw_json"):
+        raw = state["raw_json"]
+        if isinstance(raw, dict):
+            msg = raw.get("messages", [{}])[0].get("data", raw) if "messages" in raw else raw
+            embeds = msg.get("embeds", [])
+            if embeds:
+                comps = []
+                for e in embeds:
+                    inner = []
+                    if e.get("image"): inner.append({"type": 12, "items": [{"media": {"url": e["image"]["url"]}}]})
+                    txt = ""
+                    if e.get("title"): txt += f"## {e['title']}\n"
+                    if e.get("description"): txt += e["description"]
+                    if txt: inner.append({"type": 10, "content": txt})
+                    if e.get("fields"):
+                        for f in e["fields"]: inner.append({"type": 10, "content": f"**{f['name']}**\n{f.get('value','')}" })
+                    if e.get("thumbnail"):
+                        if inner and inner[-1].get("type") == 10:
+                            last = inner.pop()
+                            inner.append({"type": 9, "components": [{"type": 10, "content": last["content"]}], "accessory": {"type": 11, "media": {"url": e["thumbnail"]["url"]}}})
+                    if e.get("footer"):
+                        inner.append({"type": 14, "divider": True, "spacing": 1})
+                        inner.append({"type": 10, "content": f"-# {e['footer'].get('text','')}" })
+                    col = e.get("color", 0x5865F2)
+                    comps.append({"type": 17, "accent_color": col, "components": inner or [{"type": 10, "content": "*(empty embed)*"}]})
+                return {"flags": COMPONENTS_V2_FLAG, "components": comps}
+            if "components" in msg: return {"flags": COMPONENTS_V2_FLAG, "components": msg["components"]}
+        return None
+
+    if not state.get("title") and not state.get("description"): return None
+    inner = []
+    if state.get("image_url"): inner.append({"type": 12, "items": [{"media": {"url": state["image_url"]}}]})
+    txt = ""
+    if state.get("title"): txt += f"## {state['title']}\n"
+    if state.get("description"): txt += state["description"]
+    if txt:
+        if state.get("thumbnail_url"):
+            inner.append({"type": 9, "components": [{"type": 10, "content": txt}], "accessory": {"type": 11, "media": {"url": state["thumbnail_url"]}}})
+        else:
+            inner.append({"type": 10, "content": txt})
+    if state.get("footer_text"):
+        inner.append({"type": 14, "divider": True, "spacing": 1})
+        inner.append({"type": 10, "content": f"-# {state['footer_text']}"})
+    if not inner: return None
+    return {"flags": COMPONENTS_V2_FLAG, "components": [{"type": 17, "accent_color": state["color"], "components": inner}]}
+
+async def _ce_text_submit(interaction):
+    uid = interaction.user.id; state = embed_builders.get(uid)
+    if not state: await ia_respond(interaction, {"content": "❌ Session expired.", "flags": 64}); return
+    for row in (interaction.data or {}).get("components", []):
+        for c in row.get("components", []):
+            cid = c.get("custom_id", ""); val = (c.get("value") or "").strip() or None
+            if cid == "ce_f_title": state["title"] = val
+            elif cid == "ce_f_desc": state["description"] = val
+            elif cid == "ce_f_footer": state["footer_text"] = val
+    await ia_update(interaction, build_embed_builder(state))
+
+async def _ce_image_submit(interaction):
+    uid = interaction.user.id; state = embed_builders.get(uid)
+    if not state: await ia_respond(interaction, {"content": "❌ Session expired.", "flags": 64}); return
+    for row in (interaction.data or {}).get("components", []):
+        for c in row.get("components", []):
+            cid = c.get("custom_id", ""); val = (c.get("value") or "").strip() or None
+            if cid == "ce_f_image": state["image_url"] = val
+            elif cid == "ce_f_thumb": state["thumbnail_url"] = val
+    await ia_update(interaction, build_embed_builder(state))
+
+async def _ce_json_submit(interaction):
+    uid = interaction.user.id; state = embed_builders.get(uid)
+    if not state: await ia_respond(interaction, {"content": "❌ Session expired.", "flags": 64}); return
+    raw_text = ""
+    for row in (interaction.data or {}).get("components", []):
+        for c in row.get("components", []):
+            if c.get("custom_id") == "ce_f_json": raw_text = (c.get("value") or "").strip()
+    if not raw_text: await ia_respond(interaction, {"content": "❌ No JSON provided.", "flags": 64}); return
+    try:
+        data = json.loads(raw_text)
+        state["raw_json"] = data; state["json_mode"] = True
+        await ia_update(interaction, build_embed_builder(state))
+    except json.JSONDecodeError:
+        await ia_respond(interaction, {"content": "❌ Invalid JSON. Copy it correctly from discohook.app.", "flags": 64})
+
 class StaffPanelModal(discord.ui.Modal, title="◈ Celestials Dragons  ╱  Staff Panel"):
     keyword = discord.ui.TextInput(
         label="Section",
@@ -450,7 +613,8 @@ class StaffPanelModal(discord.ui.Modal, title="◈ Celestials Dragons  ╱  Staf
             if interaction.user.id not in EMBED_ALLOWED:
                 await interaction.response.send_message("🔒 Only Sid and Space can use this.", ephemeral=True)
                 return
-            await interaction.response.send_modal(CreateEmbedModal())
+            embed_builders[interaction.user.id] = new_embed_state()
+            await ia_respond(interaction, build_embed_builder(embed_builders[interaction.user.id]))
             return
         elif section == "launch_rules":
             if interaction.user.id not in EMBED_ALLOWED:
@@ -481,63 +645,6 @@ class StaffPanelModal(discord.ui.Modal, title="◈ Celestials Dragons  ╱  Staf
 
         await ia_respond(interaction, payload)
 
-
-class CreateEmbedModal(discord.ui.Modal, title="◈ Create Custom Embed"):
-    embed_title = discord.ui.TextInput(
-        label="Title",
-        placeholder="Title of your embed",
-        min_length=1,
-        max_length=100,
-        required=True,
-    )
-    embed_description = discord.ui.TextInput(
-        label="Content",
-        placeholder="Content of your embed (supports markdown)",
-        style=discord.TextStyle.paragraph,
-        min_length=1,
-        max_length=1000,
-        required=True,
-    )
-    embed_color = discord.ui.TextInput(
-        label="Accent Color (hex)",
-        placeholder="e.g. FF0000 for red, 5865F2 for blurple",
-        min_length=3,
-        max_length=7,
-        required=False,
-        default="5865F2",
-    )
-    embed_channel = discord.ui.TextInput(
-        label="Channel ID",
-        placeholder="ID of the channel to send to",
-        min_length=17,
-        max_length=20,
-        required=True,
-    )
-
-    async def on_submit(self, interaction: discord.Interaction):
-        if interaction.user.id not in EMBED_ALLOWED:
-            await interaction.response.send_message("🔒 Only Sid and Space can use this.", ephemeral=True)
-            return
-
-        title = self.embed_title.value.strip()
-        description = self.embed_description.value.strip()
-        color_hex = self.embed_color.value.strip() or "5865F2"
-        channel_id_str = self.embed_channel.value.strip()
-
-        try:
-            channel_id = int(channel_id_str)
-        except ValueError:
-            await interaction.response.send_message("❌ Invalid channel ID.", ephemeral=True)
-            return
-
-        await interaction.response.defer(ephemeral=True)
-        payload = build_create_embed_result(title, description, color_hex, channel_id)
-        result = await api_post(channel_id, payload)
-
-        if result.get("id"):
-            await interaction.followup.send(f"✅ Embed sent to <#{channel_id}>.", ephemeral=True)
-        else:
-            await interaction.followup.send(f"❌ Failed to send. Check the channel ID.\n```{str(result)[:200]}```", ephemeral=True)
 
 # ─────────────────────────────────────────────
 #  M O D S   R E S P O N S E S
@@ -862,6 +969,15 @@ async def on_message(message: discord.Message):
 @client.event
 async def on_interaction(interaction: discord.Interaction):
     if interaction.type == discord.InteractionType.application_command: return
+
+    # Handle embed builder modal submits
+    if interaction.type == discord.InteractionType.modal_submit:
+        cid = (interaction.data or {}).get("custom_id", "")
+        if cid == "ce_text_modal": await _ce_text_submit(interaction)
+        elif cid == "ce_image_modal": await _ce_image_submit(interaction)
+        elif cid == "ce_json_modal": await _ce_json_submit(interaction)
+        return
+
     if interaction.type != discord.InteractionType.component: return
     cid = (interaction.data or {}).get("custom_id", "")
 
@@ -884,6 +1000,72 @@ async def on_interaction(interaction: discord.Interaction):
         if action == "launch_ov":
             if interaction.user.id not in EMBED_ALLOWED: await ia_respond(interaction,{"content":"🔒 No permission.","flags":64}); return
             await ia_defer(interaction); await api_post(CHANNEL_OVERVIEW,build_overview_embed()); await ia_followup(interaction,"✅ Overview launched."); return
+        return
+
+    # Embed builder
+    if cid.startswith("ce:"):
+        action = cid.split(":")[1] if len(cid.split(":")) > 1 else ""
+        uid = interaction.user.id
+        if uid not in EMBED_ALLOWED:
+            await ia_respond(interaction, {"content": "🔒 No permission.", "flags": 64}); return
+        state = embed_builders.get(uid)
+        if not state and action not in ("back",):
+            await ia_respond(interaction, {"content": "❌ Session expired. Use `/staffpanel` → `create_embed` again.", "flags": 64}); return
+
+        if action == "color":
+            val = (interaction.data or {}).get("values", ["5865F2"])[0]
+            cmap = {p["value"]: p["label"] for p in COLOR_PRESETS}
+            state["color"] = int(val, 16); state["color_name"] = cmap.get(val, "Custom")
+            await ia_update(interaction, build_embed_builder(state)); return
+
+        if action == "channel":
+            vals = (interaction.data or {}).get("values", [])
+            if vals: state["channel_id"] = int(vals[0])
+            await ia_update(interaction, build_embed_builder(state)); return
+
+        if action == "text":
+            comps = [{"type": 1, "components": [{"type": 4, "custom_id": "ce_f_title", "label": "Title", "style": 1, "max_length": 256, "required": False, "value": state.get("title") or "", "placeholder": "Embed title"}]},
+                     {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_desc", "label": "Description", "style": 2, "max_length": 4000, "required": False, "value": state.get("description") or "", "placeholder": "Embed description (supports markdown)"}]},
+                     {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_footer", "label": "Footer", "style": 1, "max_length": 200, "required": False, "value": state.get("footer_text") or "", "placeholder": "Footer text"}]}]
+            await ia_modal(interaction, "ce_text_modal", "✏️ Edit Embed Text", comps); return
+
+        if action == "image":
+            comps = [{"type": 1, "components": [{"type": 4, "custom_id": "ce_f_image", "label": "Image URL", "style": 1, "max_length": 500, "required": False, "value": state.get("image_url") or "", "placeholder": "https://example.com/image.png"}]},
+                     {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_thumb", "label": "Thumbnail URL", "style": 1, "max_length": 500, "required": False, "value": state.get("thumbnail_url") or "", "placeholder": "https://example.com/thumb.png"}]}]
+            await ia_modal(interaction, "ce_image_modal", "🖼️ Add Images", comps); return
+
+        if action == "json":
+            comps = [{"type": 1, "components": [{"type": 4, "custom_id": "ce_f_json", "label": "Discohook JSON", "style": 2, "max_length": 4000, "required": True, "placeholder": "Paste your discohook.app JSON here..."}]}]
+            await ia_modal(interaction, "ce_json_modal", "📋 Paste Discohook JSON", comps); return
+
+        if action == "preview":
+            payload = build_final_embed(state)
+            if not payload:
+                await ia_respond(interaction, {"content": "❌ Set at least a title/description or paste JSON first.", "flags": 64}); return
+            preview = {**payload, "flags": payload.get("flags", 0) | 64}
+            await ia_respond(interaction, preview); return
+
+        if action == "send":
+            if not state.get("channel_id"):
+                await ia_respond(interaction, {"content": "❌ Select a channel first.", "flags": 64}); return
+            payload = build_final_embed(state)
+            if not payload:
+                await ia_respond(interaction, {"content": "❌ Add content first (title/description or JSON).", "flags": 64}); return
+            await ia_defer(interaction)
+            result = await api_post(state["channel_id"], payload)
+            if result.get("id"):
+                ch = state["channel_id"]; embed_builders.pop(uid, None)
+                await ia_edit(interaction, {"flags": COMPONENTS_V2_FLAG | 64, "components": [{"type": 17, "components": [
+                    {"type": 10, "content": f"## ✅ Embed Sent\n-# ╰─ Sent to <#{ch}>  ·  Celestials Dragons"},
+                ]}]})
+            else:
+                await ia_followup(interaction, f"❌ Failed. Check bot permissions.\n```{str(result)[:200]}```")
+            return
+
+        if action == "back":
+            embed_builders.pop(uid, None)
+            await ia_update(interaction, build_main_panel("en")); return
+
         return
 
     # Punishments
