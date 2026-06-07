@@ -49,7 +49,7 @@ REQUIRED_ROLE_ID  = 1497010109824499923
 flask_app = Flask('')
 
 @flask_app.route('/')
-def home(): return "Friity — Celestials Dragons — Online"
+def home(): return "Friity — Awaken Reborns — Online"
 
 def keep_alive():
     t = Thread(target=lambda: flask_app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080))))
@@ -187,7 +187,7 @@ PUNISHMENTS_CONTENT = {
         "**IV.  PERM BAN** ─ No appeal. For severe violations.\n\n"
         "**─ Strict violations (immediate perm ban) ─**\n"
         "Leaks · Doxxing · Grooming · CP jokes · Threats\n\n"
-        "-# ╰─ Celestials Dragons  ·  Punishments"
+        "-# ╰─ Awaken Reborns  ·  Punishments"
     ),
     "es": (
         "## CELESTIALS DRAGONS  ╱  SISTEMA DE SANCIONES\n"
@@ -198,7 +198,7 @@ PUNISHMENTS_CONTENT = {
         "**IV.  BAN PERM** ─ Sin apelación. Para violaciones graves.\n\n"
         "**─ Violaciones estrictas (ban inmediato) ─**\n"
         "Leaks · Doxxing · Grooming · CP jokes · Amenazas\n\n"
-        "-# ╰─ Celestials Dragons  ·  Punishments"
+        "-# ╰─ Awaken Reborns  ·  Punishments"
     ),
     "pt": (
         "## CELESTIALS DRAGONS  ╱  SISTEMA DE SANÇÕES\n"
@@ -209,13 +209,13 @@ PUNISHMENTS_CONTENT = {
         "**IV.  BAN PERM** ─ Sem apelação. Para violações graves.\n\n"
         "**─ Violações estritas (ban imediato) ─**\n"
         "Leaks · Doxxing · Grooming · CP jokes · Ameaças\n\n"
-        "-# ╰─ Celestials Dragons  ·  Punishments"
+        "-# ╰─ Awaken Reborns  ·  Punishments"
     ),
 }
 
 def build_pun_accept():
     return {"flags": 1 << 15, "components": [{"type": 17, "components": [
-        {"type": 10, "content": "─ By accepting, you acknowledge that you have read and understood the punishment system of **Celestials Dragons**.\n╰─ Violations will result in the sanctions described ─ ignorance is __not__ an excuse."},
+        {"type": 10, "content": "─ By accepting, you acknowledge that you have read and understood the punishment system of **Awaken Reborns**.\n╰─ Violations will result in the sanctions described ─ ignorance is __not__ an excuse."},
         {"type": 14, "divider": True, "spacing": 1},
         {"type": 9, "components": [{"type": 10, "content": "-# ╰─ Tap to confirm you understand."}],
          "accessory": {"type": 2, "style": 3, "label": "Accepted", "custom_id": "accept_punishments", "emoji": {"id": "1497991468584014025", "name": "emoji_2"}}}
@@ -242,7 +242,7 @@ def build_rules_embed():
         {"type": 17, "components": [
             {"type": 12, "items": [{"media": {"url": "https://cdn.discordapp.com/attachments/1451654847408373947/1495469836598378576/1776618183605.jpg"}}]},
             {"type": 14, "spacing": 2},
-            {"type": 10, "content": "## <:emoji_57:1495457372691365899> Celestials Dragons | Rules\n*** Welcome to Celestials Dragons! Please select your language to read the clan rules. ***\n[Discord Terms of Service](https://discord.com/terms)"},
+            {"type": 10, "content": "## <:emoji_57:1495457372691365899> Awaken Reborns | Rules\n*** Welcome to Awaken Reborns! Please select your language to read the clan rules. ***\n[Discord Terms of Service](https://discord.com/terms)"},
             {"type": 14, "spacing": 2},
             {"type": 9, "components": [{"type": 10, "content": "<:emoji_44:1489765823533809674>  ** Selecciona Español **"}], "accessory": {"type": 2, "style": 5, "label": "Español", "emoji": {"id": "1489666661228347526", "name": "Esp"}, "url": f"https://discord.com/channels/{GUILD_ID}/1489768820632588419"}},
             {"type": 14, "divider": False},
@@ -261,11 +261,11 @@ def build_rules_embed():
 def build_overview_embed():
     return {"flags": 1 << 15, "components": [{"type": 17, "components": [{"type": 10, "content": (
         "## CELESTIALS DRAGONS  ╱  OVERVIEW\n"
-        "-# ╰─ Welcome to Celestials Dragons.\n\n"
+        "-# ╰─ Welcome to Awaken Reborns.\n\n"
         "─ Official competitive TSB clan in **TSBL** (TSB LATAM).\n"
         "─ Competing in SAE (East) and SAW (West) regions.\n\n"
         f"**─ Channels ─**\n<#{CHANNEL_RULES}> ─ Rules\n<#{CHANNEL_PUNISHMENTS}> ─ Punishments\n\n"
-        "-# ╰─ Celestials Dragons  ·  Overview"
+        "-# ╰─ Awaken Reborns  ·  Overview"
     )}]}]}
 
 # ─────────────────────────────────────────────
@@ -311,7 +311,7 @@ SETTINGS_CONTENT = {
         "/setuprules       ─  Send rules embed\n"
         "/setupoverview    ─  Send overview embed\n"
         "```\n"
-        "-# ╰─ Celestials Dragons  ·  Friity Staff"
+        "-# ╰─ Awaken Reborns  ·  Friity Staff"
     ),
     "es": (
         "## SETTINGS  ╱  Referencia de Comandos\n"
@@ -328,7 +328,7 @@ SETTINGS_CONTENT = {
         "/setuprules       ─  Enviar embed de reglas\n"
         "/setupoverview    ─  Enviar embed de overview\n"
         "```\n"
-        "-# ╰─ Celestials Dragons  ·  Friity Staff"
+        "-# ╰─ Awaken Reborns  ·  Friity Staff"
     ),
     "pt": (
         "## SETTINGS  ╱  Referência de Comandos\n"
@@ -345,7 +345,7 @@ SETTINGS_CONTENT = {
         "/setuprules       ─  Enviar embed de regras\n"
         "/setupoverview    ─  Enviar embed de overview\n"
         "```\n"
-        "-# ╰─ Celestials Dragons  ·  Friity Staff"
+        "-# ╰─ Awaken Reborns  ·  Friity Staff"
     ),
 }
 
@@ -409,13 +409,13 @@ def build_main_panel(lang="en"):
     labels = {
         "en": {"title": "## CELESTIALS DRAGONS  ╱  STAFF PANEL", "sub": "-# ╰─ Type a keyword in the modal to navigate.",
                "body": "```\ncreate_embed  ─  Custom embed / container creator\n```\n-# ╰─ Other sections coming soon.",
-               "ft": "-# ╰─ Celestials Dragons  ·  Friity Staff", "lang": "-# ╰─ Language:"},
+               "ft": "-# ╰─ Awaken Reborns  ·  Friity Staff", "lang": "-# ╰─ Language:"},
         "es": {"title": "## CELESTIALS DRAGONS  ╱  PANEL DE STAFF", "sub": "-# ╰─ Escribí una palabra clave en el modal para navegar.",
                "body": "```\ncreate_embed  ─  Creador de embed / container custom\n```\n-# ╰─ Otras secciones próximamente.",
-               "ft": "-# ╰─ Celestials Dragons  ·  Friity Staff", "lang": "-# ╰─ Idioma:"},
+               "ft": "-# ╰─ Awaken Reborns  ·  Friity Staff", "lang": "-# ╰─ Idioma:"},
         "pt": {"title": "## CELESTIALS DRAGONS  ╱  PAINEL DE STAFF", "sub": "-# ╰─ Digite uma palavra-chave no modal para navegar.",
                "body": "```\ncreate_embed  ─  Criador de embed / container custom\n```\n-# ╰─ Outras seções em breve.",
-               "ft": "-# ╰─ Celestials Dragons  ·  Friity Staff", "lang": "-# ╰─ Idioma:"},
+               "ft": "-# ╰─ Awaken Reborns  ·  Friity Staff", "lang": "-# ╰─ Idioma:"},
     }
     L = labels[lang]
     return {"flags": COMPONENTS_V2_FLAG | 64, "components": [{"type": 17, "components": [
@@ -435,7 +435,7 @@ def build_create_embed_result(title, description, color_hex, channel_id):
     return {"flags": COMPONENTS_V2_FLAG, "components": [{"type": 17, "accent_color": color, "components": [
         {"type": 10, "content": f"## {title}\n{description}"},
         {"type": 14, "divider": True, "spacing": 1},
-        {"type": 10, "content": f"-# ╰─ Sent to <#{channel_id}>  ·  Celestials Dragons"},
+        {"type": 10, "content": f"-# ╰─ Sent to <#{channel_id}>  ·  Awaken Reborns"},
     ]}]}
 
 # ─────────────────────────────────────────────
@@ -458,6 +458,7 @@ SECTION_MAP = {
 # ─────────────────────────────────────────────
 
 COLOR_PRESETS = [
+    {"label": "None (no color)", "value": "000001"},
     {"label": "Blurple",  "value": "5865F2"},
     {"label": "Red",      "value": "ED4245"},
     {"label": "Green",    "value": "57F287"},
@@ -523,7 +524,7 @@ def build_embed_builder(state):
         {"type": 17, "accent_color": state["color"], "components": [
             {"type": 10, "content": status},
             {"type": 14, "divider": True, "spacing": 1},
-            {"type": 10, "content": "-# ╰─ Celestials Dragons  ·  Embed Builder"},
+            {"type": 10, "content": "-# ╰─ Awaken Reborns  ·  Embed Builder"},
         ]},
         {"type": 1, "components": [{"type": 3, "custom_id": "ce:color", "placeholder": "Select Color", "options": COLOR_PRESETS}]},
         {"type": 1, "components": [{"type": 8, "custom_id": "ce:channel", "placeholder": "Select Channel", "channel_types": [0]}]},
@@ -565,7 +566,7 @@ def build_container_panel(state):
         {"type": 17, "accent_color": state["color"], "components": [
             {"type": 10, "content": status},
             {"type": 14, "divider": True, "spacing": 1},
-            {"type": 10, "content": "-# ╰─ Celestials Dragons  ·  Container Builder"},
+            {"type": 10, "content": "-# ╰─ Awaken Reborns  ·  Container Builder"},
         ]},
         {"type": 1, "components": [
             {"type": 2, "style": 1, "label": "Add Text", "custom_id": "ce:ct_text"},
@@ -667,7 +668,10 @@ def build_final_embed(state):
         inner.append({"type": 10, "content": f"-# {' · '.join(ft_parts)}"})
 
     if not inner: return None
-    return {"flags": COMPONENTS_V2_FLAG, "components": [{"type": 17, "accent_color": state["color"], "components": inner}]}
+    container = {"type": 17, "components": inner}
+    if state["color"] != 0x000001:
+        container["accent_color"] = state["color"]
+    return {"flags": COMPONENTS_V2_FLAG, "components": [container]}
 
 async def _ce_text_submit(interaction):
     uid = interaction.user.id; state = embed_builders.get(uid)
@@ -779,7 +783,7 @@ async def _ce_ct_btn_submit(interaction):
     state.setdefault("container_parts", []).append(btn)
     await ia_update(interaction, build_container_panel(state))
 
-class StaffPanelModal(discord.ui.Modal, title="Celestials Dragons  ╱  Staff Panel"):
+class StaffPanelModal(discord.ui.Modal, title="Awaken Reborns  ╱  Staff Panel"):
     keyword = discord.ui.TextInput(
         label="Section",
         placeholder="create_embed",
@@ -975,7 +979,29 @@ def build_activity_container(cid):
 conv_history: dict = defaultdict(list)
 MAX_HIST = 20
 MODELS = ["llama-3.3-70b-versatile","meta-llama/llama-4-maverick-17b-128e-instruct","qwen/qwen3-32b","deepseek-r1-distill-llama-70b","llama-3.1-8b-instant","gemma2-9b-it"]
-SYS = "Eres Friity, bot oficial del clan Celestials Dragons. Respondés en 1-3 oraciones. Detectás el idioma y respondés en ese idioma. Nunca inventás datos."
+SYS = (
+    "You are Friity, the official staff assistant bot for the clan 'Awaken Reborns'.\n\n"
+    "RULES:\n"
+    "- Detect the user's language (Spanish, English, Portuguese) and ALWAYS reply in that language.\n"
+    "- Keep answers concise: 1-4 sentences max unless the user asks for detail.\n"
+    "- You are ONLY knowledgeable about STAFF topics. If someone asks about competitive play, tournaments, "
+    "game strategies, or anything not related to staff duties, reply: 'I only handle staff-related topics.'\n"
+    "- Never invent data, stats, or information you don't have.\n"
+    "- Be professional but friendly.\n\n"
+    "STAFF KNOWLEDGE:\n"
+    "- Tier system: Tiers 0-5 classify members by skill/rank. Use `>tier set @user <tier>` to assign tiers. "
+    "Sub-tiers: high/mid/low. Classes: strong/stable/weak.\n"
+    "- Activity checks: Staff can run `?activity check` to verify member activity. Inactivity may result in demotion.\n"
+    "- Polls: Use `>poll` to create staff votes with options, vote goals, and time limits.\n"
+    "- Punishments: The clan has a structured punishment system (warn → mute → kick → ban). Staff must follow proper escalation.\n"
+    "- Embed builder: Staff with permissions can use `/staffpanel` → `create_embed` to create custom announcements.\n"
+    "- Rules panel: Staff can deploy the rules embed to the designated channel.\n"
+    "- Moderation commands: Available through the staff panel.\n\n"
+    "PERSONALITY:\n"
+    "- You represent Awaken Reborns professionally.\n"
+    "- If unsure about something, say so honestly instead of guessing.\n"
+    "- Help staff members understand their tools and duties."
+)
 
 async def handle_ask(message):
     q=message.content[len(">ask"):].strip()
@@ -1082,7 +1108,7 @@ class LinkView(discord.ui.View):
 #  S L A S H   C O M M A N D S
 # ─────────────────────────────────────────────
 
-@client.tree.command(name="staffpanel", description="Open the Celestials Dragons staff control panel.")
+@client.tree.command(name="staffpanel", description="Open the Awaken Reborns staff control panel.")
 async def slash_staffpanel(interaction: discord.Interaction):
     if not has_perm(interaction.user):
         await interaction.response.send_message("─ No permission.", ephemeral=True); return
@@ -1290,7 +1316,7 @@ async def on_interaction(interaction: discord.Interaction):
             if result.get("id"):
                 ch = state["channel_id"]; embed_builders.pop(uid, None)
                 await ia_edit(interaction, {"flags": COMPONENTS_V2_FLAG | 64, "components": [{"type": 17, "components": [
-                    {"type": 10, "content": f"## Embed Sent\n-# ╰─ Sent to <#{ch}>  ·  Celestials Dragons"},
+                    {"type": 10, "content": f"## Embed Sent\n-# ╰─ Sent to <#{ch}>  ·  Awaken Reborns"},
                 ]}]})
             else:
                 await ia_followup(interaction, f"─ Failed. Check bot permissions.\n```{str(result)[:200]}```")
