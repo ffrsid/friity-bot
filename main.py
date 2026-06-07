@@ -253,26 +253,152 @@ def build_pun_content(lang):
         {"type": 1, "components": [{"type": 2, "style": 1, "label": "Back", "custom_id": "back_to_langs"}]}
     ]}
 
-def build_rules_embed():
-    return {"flags": COMPONENTS_V2_FLAG, "components": [
-        {"type": 17, "components": [
-            {"type": 12, "items": [{"media": {"url": "https://cdn.discordapp.com/attachments/1451654847408373947/1495469836598378576/1776618183605.jpg"}}]},
-            {"type": 14, "spacing": 2},
-            {"type": 10, "content": "## <:emoji_57:1495457372691365899> Awaken Reborns | Rules\n*** Welcome to Awaken Reborns! Please select your language to read the clan rules. ***\n[Discord Terms of Service](https://discord.com/terms)"},
-            {"type": 14, "spacing": 2},
-            {"type": 9, "components": [{"type": 10, "content": "<:emoji_44:1489765823533809674>  ** Selecciona Español **"}], "accessory": {"type": 2, "style": 5, "label": "Español", "emoji": {"id": "1489666661228347526", "name": "Esp"}, "url": f"https://discord.com/channels/{GUILD_ID}/1489768820632588419"}},
-            {"type": 14, "divider": False},
-            {"type": 9, "components": [{"type": 10, "content": "<:emoji_44:1489765823533809674> ** Select English **"}], "accessory": {"type": 2, "style": 5, "label": "English", "emoji": {"id": "1489667788820971730", "name": "EEUU"}, "url": f"https://discord.com/channels/{GUILD_ID}/1489768537982500895"}},
-            {"type": 14},
-            {"type": 9, "components": [{"type": 10, "content": "<:emoji_44:1489765823533809674> ** Selecione Português **"}], "accessory": {"type": 2, "style": 5, "label": "Português", "emoji": {"id": "1489666119689306276", "name": "emoji_40"}, "url": f"https://discord.com/channels/{GUILD_ID}/1489769065135214704"}},
-            {"type": 14},
-            {"type": 10, "content": "** Check the other channels for more information. **"},
-        ]},
-        {"type": 17, "components": [{"type": 1, "components": [{"type": 3, "custom_id": "menu_canales", "placeholder": "Channels", "min_values": 1, "max_values": 1, "options": [
-            {"label": "punishments", "value": str(CHANNEL_PUNISHMENTS), "description": "Go to Punishments"},
-            {"label": "overview",    "value": str(CHANNEL_OVERVIEW),    "description": "Go to Overview"},
-        ]}]}]}
+# ─────────────────────────────────────────────
+#  R U L E S   V 2   ( T Y P O G R A P H Y )
+# ─────────────────────────────────────────────
+
+RULES_WEBHOOK_NAME = "Rules-Placeholder"
+RULES_WEBHOOK_AVATAR = "https://cdn.discordapp.com/attachments/1480321316996517930/1513263827905413202/9566-rules.png"
+CHANNEL_GENERAL = 1497005878732390536
+
+def _bold(text):
+    n = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    b = "𝗔𝗕𝗖𝗗𝗘𝗙𝗚𝗛𝗜𝗝𝗞𝗟𝗠𝗡𝗢𝗣𝗤𝗥𝗦𝗧𝗨𝗩𝗪𝗫𝗬𝗭𝗮𝗯𝗰𝗱𝗲𝗳𝗴𝗵𝗶𝗷𝗸𝗹𝗺𝗻𝗼𝗽𝗾𝗿𝘀𝘁𝘂𝘃𝘄𝘅𝘆𝘇𝟬𝟭𝟮𝟯𝟰𝟱𝟲𝟳𝟴𝟵"
+    return "".join(b[n.find(c)] if n.find(c) != -1 else c for c in text)
+
+def _italic(text):
+    n = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    i = "𝘈𝘉𝘊𝘋𝘌𝘍𝘎𝘏𝘐𝘑𝘒𝘓𝘔𝘕𝘖𝘗𝘘𝘙𝘚𝘛𝘜𝘝𝘞𝘟𝘠𝘡𝘢𝘣𝘤𝘥𝘦𝘧𝘨𝘩𝘪𝘫𝘬𝘭𝘮𝘯𝘰𝘱𝘲𝘳𝘴𝘵𝘶𝘷𝘸𝘹𝘺𝘻"
+    return "".join(i[n.find(c)] if n.find(c) != -1 else c for c in text)
+
+def _serif(text):
+    n = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    s = "𝐀𝐁𝐂𝐃𝐄𝐅𝐆𝐇𝐈𝐉𝐊𝐋𝐌𝐍𝐎𝐏𝐐𝐑𝐒𝐓𝐔𝐕𝐖𝐗𝐘𝐙𝐚𝐛𝐜𝐝𝐞𝐟𝐠𝐡𝐢𝐣𝐤𝐥𝐦𝐧𝐨𝐩𝐪𝐫𝐬𝐭𝐮𝐯𝐰𝐱𝐲𝐳"
+    return "".join(s[n.find(c)] if n.find(c) != -1 else c for c in text)
+
+_R_DIV  = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+_R_THIN = "· · · · · · · · · · · · · · · ·"
+
+RULES_V2_CONTENT = {
+    "en": {
+        "header_sub": "Official Server Regulations",
+        "heading": "R U L E S",
+        "intro_text": "## Welcome to Awaken Reborns\n-# Read and respect the following regulations before participating in this server.\n-# Ignorance of the rules is not a valid excuse.\n-# " + _R_DIV,
+        "nav_punishments": "Punishments", "nav_overview": "Overview", "nav_general": "General",
+        "sections": [
+            {"num": "I",   "title": "RACISM",            "body": "Any form of racism — slurs, race-based remarks or religious discrimination — is strictly prohibited and will result in immediate action."},
+            {"num": "II",  "title": "COMMON SENSE",       "body": "Be respectful at all times. Offensive jokes, Nazi references or family-related insults are not tolerated under any circumstance."},
+            {"num": "III", "title": "NSFW",               "body": "Sharing +18 or adult content of any kind is strictly forbidden. Violation results in a permanent ban with no appeal."},
+            {"num": "IV",  "title": "ADVERTISING",        "body": "Self-promotion, advertising other clans or inviting to external servers is prohibited."},
+            {"num": "V",   "title": "SPAM / FLOOD",       "body": "Sending 5 or more consecutive messages or flooding with 8+ lines of text is not allowed."},
+            {"num": "VI",  "title": "SENSITIVE CONTENT",  "body": "Jokes referencing assault, abuse or suicide will result in an immediate blacklist or permanent ban."},
+        ],
+        "sanctions_title": "SANCTIONS",
+        "sanctions_rows": [("1 Warning", "1 hour mute"), ("2 Warnings", "6 hour mute"), ("3 Warnings", "Permanent ban  ·  Appealable")],
+        "footer": "Awaken Reborns  ·  Official Rules",
+        "lang_prompt": "Select a language to display the rules in.",
+        "btn_en": "English", "btn_es": "Español", "btn_pt": "Português",
+    },
+    "es": {
+        "header_sub": "Regulaciones Oficiales del Servidor",
+        "heading": "R E G L A S",
+        "intro_text": "## Bienvenido a Awaken Reborns\n-# Lee y respeta las siguientes regulaciones antes de participar en este servidor.\n-# El desconocimiento de las reglas no es una excusa valida.\n-# " + _R_DIV,
+        "nav_punishments": "Sanciones", "nav_overview": "Descripcion", "nav_general": "General",
+        "sections": [
+            {"num": "I",   "title": "RACISMO",           "body": "Cualquier forma de racismo — insultos, comentarios raciales o discriminacion religiosa — esta estrictamente prohibida y resultara en accion inmediata."},
+            {"num": "II",  "title": "SENTIDO COMUN",      "body": "Se respetuoso en todo momento. Los chistes ofensivos, referencias nazis o insultos hacia la familia de otros no estan permitidos."},
+            {"num": "III", "title": "NSFW",               "body": "Prohibido enviar contenido +18 de cualquier tipo. La violacion resulta en baneo permanente sin posibilidad de apelacion."},
+            {"num": "IV",  "title": "PUBLICIDAD",         "body": "Prohibido promocionarse, publicitar otros clanes o invitar a servidores externos."},
+            {"num": "V",   "title": "SPAM / FLOOD",       "body": "No se permite enviar 5 o mas mensajes consecutivos ni hacer flood con mas de 8 lineas de texto."},
+            {"num": "VI",  "title": "TEMAS SENSIBLES",    "body": "Los chistes sobre abuso o suicidio resultaran en blacklist o baneo inmediato."},
+        ],
+        "sanctions_title": "SANCIONES",
+        "sanctions_rows": [("1 Advertencia", "Mute de 1 hora"), ("2 Advertencias", "Mute de 6 horas"), ("3 Advertencias", "Baneo permanente  ·  Apelable")],
+        "footer": "Awaken Reborns  ·  Reglamento Oficial",
+        "lang_prompt": "Selecciona un idioma para mostrar las reglas.",
+        "btn_en": "English", "btn_es": "Español", "btn_pt": "Português",
+    },
+    "pt": {
+        "header_sub": "Regulamentos Oficiais do Servidor",
+        "heading": "R E G R A S",
+        "intro_text": "## Bem-vindo ao Awaken Reborns\n-# Leia e respeite os regulamentos abaixo antes de participar deste servidor.\n-# O desconhecimento das regras nao e uma justificativa valida.\n-# " + _R_DIV,
+        "nav_punishments": "Punicoes", "nav_overview": "Visao Geral", "nav_general": "Geral",
+        "sections": [
+            {"num": "I",   "title": "RACISMO",           "body": "Qualquer forma de racismo — insultos, comentarios raciais ou discriminacao religiosa — nao sera tolerada em nenhuma circunstancia."},
+            {"num": "II",  "title": "BOM SENSO",          "body": "Seja respeitoso. Piadas ofensivas, referencias nazistas ou insultos sobre a familia de outros nao sao permitidos."},
+            {"num": "III", "title": "NSFW",               "body": "Proibido enviar conteudo +18 de qualquer tipo. A violacao resultara em banimento permanente sem apelacao."},
+            {"num": "IV",  "title": "AUTOPROMOCAO",       "body": "Proibido se autopromover, divulgar outros clas ou convidar para servidores externos."},
+            {"num": "V",   "title": "SPAM",               "body": "Proibido spam com 5 ou mais mensagens consecutivas ou mensagens com mais de 8 linhas."},
+            {"num": "VI",  "title": "CONTEUDO SENSIVEL",  "body": "Piadas sobre abuso ou suicidio resultarao em banimento ou blacklist imediato."},
+        ],
+        "sanctions_title": "PUNICOES",
+        "sanctions_rows": [("1 Aviso", "Mute de 1 hora"), ("2 Avisos", "Mute de 6 horas"), ("3 Avisos", "Banimento permanente  ·  Apelavel")],
+        "footer": "Awaken Reborns  ·  Regras Oficiais",
+        "lang_prompt": "Selecione um idioma para exibir as regras.",
+        "btn_en": "English", "btn_es": "Español", "btn_pt": "Português",
+    },
+}
+
+def _rules_section_comps(sections):
+    comps = []
+    for i, s in enumerate(sections):
+        comps.append({"type": 10, "content": f"**{_serif(s['num']+'.')}  {_bold(s['title'])}**\n{s['body']}"})
+        if i < len(sections) - 1:
+            comps.append({"type": 14, "divider": True, "spacing": 1})
+    return comps
+
+def _rules_sanctions_text(rows):
+    return "\n".join(f"{_serif(w)}  **->**  {r}" for w, r in rows)
+
+def _channel_url(cid):
+    return f"https://discord.com/channels/{GUILD_ID}/{cid}"
+
+def build_rules_intro(lang="en"):
+    d = RULES_V2_CONTENT[lang]
+    return {"flags": 1 << 15, "components": [
+        {"type": 10, "content": d["intro_text"]},
+        {"type": 1, "components": [
+            {"type": 2, "style": 5, "label": d["nav_punishments"], "url": _channel_url(CHANNEL_PUNISHMENTS)},
+            {"type": 2, "style": 5, "label": d["nav_overview"],    "url": _channel_url(CHANNEL_OVERVIEW)},
+            {"type": 2, "style": 5, "label": d["nav_general"],     "url": _channel_url(CHANNEL_GENERAL)},
+        ]}
     ]}
+
+def build_rules_payload(lang="en"):
+    d = RULES_V2_CONTENT[lang]
+    sec = _rules_section_comps(d["sections"])
+    san = _rules_sanctions_text(d["sanctions_rows"])
+    return {"flags": 1 << 15, "components": [
+        {"type": 17, "accent_color": 0x2b2d42, "components": [
+            {"type": 10, "content": f"# {_bold('AWAKEN REBORNS')}\n-# {_italic(d['header_sub'])}\n-# {_R_DIV}"},
+            {"type": 10, "content": f"## {_bold(d['heading'])}"},
+            {"type": 14, "divider": True, "spacing": 1},
+            *sec,
+            {"type": 14, "divider": True, "spacing": 2},
+            {"type": 10, "content": f"**{_bold(d['sanctions_title'])}**\n-# {_R_THIN}\n{san}"},
+            {"type": 14, "divider": True, "spacing": 1},
+            {"type": 9, "components": [{"type": 10, "content": f"-# {d['footer']}"}],
+             "accessory": {"type": 2, "style": 2, "label": "Language", "custom_id": "rules_open_lang"}},
+        ]},
+        {"type": 14, "divider": True, "spacing": 1},
+        {"type": 1, "components": [
+            {"type": 8, "custom_id": "rules_channel_nav", "placeholder": "Navigate to a channel...", "channel_types": [0], "max_values": 1}
+        ]}
+    ]}
+
+def build_rules_lang_prompt(rules_msg_id, current_lang="en"):
+    d = RULES_V2_CONTENT[current_lang]
+    buttons = []
+    for code, key in [("en", "btn_en"), ("es", "btn_es"), ("pt", "btn_pt")]:
+        if code == current_lang:
+            buttons.append({"type": 2, "style": 1, "label": d[key], "custom_id": f"rlang_noop_{code}", "disabled": True})
+        else:
+            buttons.append({"type": 2, "style": 2, "label": d[key], "custom_id": f"rlang_{code}:{rules_msg_id}"})
+    return {"flags": 64, "content": d["lang_prompt"], "components": [{"type": 1, "components": buttons}]}
+
+# Keep legacy for backward compat
+def build_rules_embed():
+    return build_rules_payload("en")
 
 def build_overview_embed():
     return {"flags": 1 << 15, "components": [{"type": 17, "components": [{"type": 10, "content": (
@@ -1164,8 +1290,9 @@ async def slash_setuprules(interaction: discord.Interaction):
     if not is_bot_owner(interaction.user):
         await interaction.response.send_message("─ Only Sid and Space can use this.", ephemeral=True); return
     await interaction.response.defer(ephemeral=True)
-    await api_post(CHANNEL_RULES, build_rules_embed())
-    await interaction.followup.send("Rules panel sent.", ephemeral=True)
+    await webhook_send(CHANNEL_RULES, build_rules_intro("en"), username=RULES_WEBHOOK_NAME, avatar_url=RULES_WEBHOOK_AVATAR)
+    await webhook_send(CHANNEL_RULES, build_rules_payload("en"), username=RULES_WEBHOOK_NAME, avatar_url=RULES_WEBHOOK_AVATAR)
+    await interaction.followup.send("Rules panel sent (via Rules-Placeholder webhook).", ephemeral=True)
 
 @client.tree.command(name="setupoverview", description="[Beta] Send the overview panel to its channel.")
 async def slash_setupoverview(interaction: discord.Interaction):
@@ -1386,7 +1513,10 @@ async def on_interaction(interaction: discord.Interaction):
         if action == "embeds": await ia_update(interaction, build_embeds_panel(lang,interaction.user.id)); return
         if action == "launch_rules":
             if interaction.user.id not in EMBED_ALLOWED: await ia_respond(interaction,{"content":"─ No permission.","flags":64}); return
-            await ia_defer(interaction); await api_post(CHANNEL_RULES,build_rules_embed()); await ia_followup(interaction,"Rules launched."); return
+            await ia_defer(interaction)
+            await webhook_send(CHANNEL_RULES, build_rules_intro("en"), username=RULES_WEBHOOK_NAME, avatar_url=RULES_WEBHOOK_AVATAR)
+            await webhook_send(CHANNEL_RULES, build_rules_payload("en"), username=RULES_WEBHOOK_NAME, avatar_url=RULES_WEBHOOK_AVATAR)
+            await ia_followup(interaction,"Rules launched."); return
         if action == "launch_pun":
             if interaction.user.id not in EMBED_ALLOWED: await ia_respond(interaction,{"content":"─ No permission.","flags":64}); return
             await ia_defer(interaction); await api_post(CHANNEL_PUNISHMENTS,build_pun_accept()); await ia_followup(interaction,"Punishments launched."); return
@@ -1541,6 +1671,32 @@ async def on_interaction(interaction: discord.Interaction):
     if cid == "menu_canales":
         vals=(interaction.data or {}).get("values") or []
         if vals: await ia_respond(interaction,{"content":f"Go to: <#{vals[0]}>","flags":64}); return
+
+    # Rules V2 — Language button
+    if cid == "rules_open_lang":
+        rules_msg_id = str(interaction.message.id)
+        await ia_respond(interaction, build_rules_lang_prompt(rules_msg_id, current_lang="en")); return
+    if cid.startswith("rlang_") and not cid.startswith("rlang_noop"):
+        parts_l = cid.split(":")
+        lang = parts_l[0].replace("rlang_", "")
+        rules_msg_id = parts_l[1] if len(parts_l) > 1 else ""
+        await ia_update(interaction, build_rules_lang_prompt(rules_msg_id, current_lang=lang))
+        if rules_msg_id:
+            edit_url = f"{DISCORD_API_BASE}/channels/{CHANNEL_RULES}/messages/{rules_msg_id}"
+            headers = {"Authorization": f"Bot {DISCORD_BOT_TOKEN}", "Content-Type": "application/json"}
+            async with aiohttp.ClientSession() as s:
+                await s.patch(edit_url, json=build_rules_payload(lang), headers=headers)
+        return
+    if cid.startswith("rlang_noop"):
+        await ia_defer(interaction); return
+    # Rules V2 — Channel nav dropdown
+    if cid == "rules_channel_nav":
+        vals = (interaction.data or {}).get("values") or []
+        if vals:
+            await ia_respond(interaction, {"content": f"<#{vals[0]}>", "flags": 64})
+        else:
+            await ia_defer(interaction)
+        return
 
     # Polls
     parts=cid.split(":")
