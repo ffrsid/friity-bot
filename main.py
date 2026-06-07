@@ -477,7 +477,9 @@ def new_embed_state():
             "image_url": None, "thumbnail_url": None, "footer_text": None,
             "channel_id": None, "json_mode": False, "raw_json": None,
             "webhook_name": None, "webhook_avatar": None,
-            "container_parts": []}
+            "container_parts": [],
+            "author_name": None, "author_icon": None, "author_url": None,
+            "fields": [], "timestamp": False}
 
 def _trunc(s, n):
     if not s: return "─"
@@ -495,6 +497,9 @@ def build_embed_builder(state):
     parts = len(state.get("container_parts", []))
     wn = state.get("webhook_name") or "Default"
     wa = "Yes" if state.get("webhook_avatar") else "No"
+    au = _trunc(state.get("author_name"), 25)
+    flds = len(state.get("fields", []))
+    ts = "Yes" if state.get("timestamp") else "No"
 
     status = (
         "## Create Custom Embed\n"
@@ -502,10 +507,12 @@ def build_embed_builder(state):
         "```\n"
         f"Title:       {t}\n"
         f"Description: {d}\n"
+        f"Author:      {au}\n"
         f"Color:       #{state['color']:06X} ({c})\n"
         f"Channel:     {ch}\n"
         f"Image:       {img}  ·  Thumbnail: {thumb}\n"
-        f"Footer:      {ft}\n"
+        f"Footer:      {ft}  ·  Timestamp: {ts}\n"
+        f"Fields:      {flds}\n"
         f"Mode:        {mode}\n"
         f"Components:  {parts}\n"
         f"Profile:     {wn}  ·  Avatar: {wa}\n"
@@ -523,11 +530,14 @@ def build_embed_builder(state):
         {"type": 1, "components": [
             {"type": 2, "style": 1, "label": "Edit Text", "custom_id": "ce:text"},
             {"type": 2, "style": 1, "label": "Images", "custom_id": "ce:image"},
+            {"type": 2, "style": 1, "label": "Author", "custom_id": "ce:author"},
+            {"type": 2, "style": 1, "label": "Fields", "custom_id": "ce:field"},
             {"type": 2, "style": 2, "label": "Paste JSON", "custom_id": "ce:json"},
         ]},
         {"type": 1, "components": [
             {"type": 2, "style": 1, "label": "Container", "custom_id": "ce:container"},
             {"type": 2, "style": 2, "label": "Profile", "custom_id": "ce:profile"},
+            {"type": 2, "style": 2, "label": "Timestamp", "custom_id": "ce:timestamp"},
             {"type": 2, "style": 3, "label": "Preview", "custom_id": "ce:preview"},
         ]},
         {"type": 1, "components": [
@@ -586,10 +596,20 @@ def build_final_embed(state):
                     if txt: inner.append({"type": 10, "content": txt})
                     if e.get("fields"):
                         for f in e["fields"]: inner.append({"type": 10, "content": f"**{f['name']}**\n{f.get('value','')}" })
+                    if e.get("author"):
+                        a_txt = e["author"].get("name", "")
+                        if e["author"].get("url"): a_txt = f"[{a_txt}]({e['author']['url']})"
+                        if e["author"].get("icon_url"):
+                            inner.insert(0, {"type": 9, "components": [{"type": 10, "content": f"-# {a_txt}"}], "accessory": {"type": 11, "media": {"url": e["author"]["icon_url"]}}})
+                        else:
+                            inner.insert(0, {"type": 10, "content": f"-# {a_txt}"})
                     if e.get("thumbnail"):
                         if inner and inner[-1].get("type") == 10:
                             last = inner.pop()
                             inner.append({"type": 9, "components": [{"type": 10, "content": last["content"]}], "accessory": {"type": 11, "media": {"url": e["thumbnail"]["url"]}}})
+                    if e.get("timestamp"):
+                        ts_raw = e["timestamp"]
+                        inner.append({"type": 10, "content": f"-# {ts_raw}"})
                     if e.get("footer"):
                         inner.append({"type": 14, "divider": True, "spacing": 1})
                         inner.append({"type": 10, "content": f"-# {e['footer'].get('text','')}" })
@@ -600,7 +620,17 @@ def build_final_embed(state):
         return None
 
     inner = []
+    # Author
+    if state.get("author_name"):
+        a_txt = state["author_name"]
+        if state.get("author_url"): a_txt = f"[{a_txt}]({state['author_url']})"
+        if state.get("author_icon"):
+            inner.append({"type": 9, "components": [{"type": 10, "content": f"-# {a_txt}"}], "accessory": {"type": 11, "media": {"url": state["author_icon"]}}})
+        else:
+            inner.append({"type": 10, "content": f"-# {a_txt}"})
+    # Image
     if state.get("image_url"): inner.append({"type": 12, "items": [{"media": {"url": state["image_url"]}}]})
+    # Title + Description
     txt = ""
     if state.get("title"): txt += f"## {state['title']}\n"
     if state.get("description"): txt += state["description"]
@@ -609,6 +639,9 @@ def build_final_embed(state):
             inner.append({"type": 9, "components": [{"type": 10, "content": txt}], "accessory": {"type": 11, "media": {"url": state["thumbnail_url"]}}})
         else:
             inner.append({"type": 10, "content": txt})
+    # Fields
+    for f in state.get("fields", []):
+        inner.append({"type": 10, "content": f"**{f['name']}**\n{f.get('value', '')}"})
 
     for part in state.get("container_parts", []):
         pt = part.get("_type")
@@ -626,9 +659,12 @@ def build_final_embed(state):
                 btn["emoji"] = {"id": part["emoji_id"], "name": part.get("emoji_name", "emoji")}
             inner.append({"type": 1, "components": [btn]})
 
-    if state.get("footer_text"):
+    if state.get("footer_text") or state.get("timestamp"):
         inner.append({"type": 14, "divider": True, "spacing": 1})
-        inner.append({"type": 10, "content": f"-# {state['footer_text']}"})
+        ft_parts = []
+        if state.get("footer_text"): ft_parts.append(state["footer_text"])
+        if state.get("timestamp"): ft_parts.append(datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M UTC"))
+        inner.append({"type": 10, "content": f"-# {' · '.join(ft_parts)}"})
 
     if not inner: return None
     return {"flags": COMPONENTS_V2_FLAG, "components": [{"type": 17, "accent_color": state["color"], "components": inner}]}
@@ -668,6 +704,31 @@ async def _ce_json_submit(interaction):
         await ia_update(interaction, build_embed_builder(state))
     except json.JSONDecodeError:
         await ia_respond(interaction, {"content": "─ Invalid JSON. Copy it correctly from discohook.app.", "flags": 64})
+
+async def _ce_author_submit(interaction):
+    uid = interaction.user.id; state = embed_builders.get(uid)
+    if not state: await ia_respond(interaction, {"content": "─ Session expired.", "flags": 64}); return
+    for row in (interaction.data or {}).get("components", []):
+        for c in row.get("components", []):
+            cid = c.get("custom_id", ""); val = (c.get("value") or "").strip() or None
+            if cid == "ce_f_author_name": state["author_name"] = val
+            elif cid == "ce_f_author_icon": state["author_icon"] = val
+            elif cid == "ce_f_author_url": state["author_url"] = val
+    await ia_update(interaction, build_embed_builder(state))
+
+async def _ce_field_submit(interaction):
+    uid = interaction.user.id; state = embed_builders.get(uid)
+    if not state: await ia_respond(interaction, {"content": "─ Session expired.", "flags": 64}); return
+    name = ""; value = ""; inline = False
+    for row in (interaction.data or {}).get("components", []):
+        for c in row.get("components", []):
+            cid = c.get("custom_id", ""); val = (c.get("value") or "").strip()
+            if cid == "ce_f_field_name": name = val
+            elif cid == "ce_f_field_value": value = val
+            elif cid == "ce_f_field_inline": inline = val.lower() in ("yes", "true", "si", "sí", "1")
+    if not name: await ia_respond(interaction, {"content": "─ Field needs a name.", "flags": 64}); return
+    state.setdefault("fields", []).append({"name": name, "value": value, "inline": inline})
+    await ia_update(interaction, build_embed_builder(state))
 
 async def _ce_profile_submit(interaction):
     uid = interaction.user.id; state = embed_builders.get(uid)
@@ -1055,6 +1116,21 @@ async def slash_setupoverview(interaction: discord.Interaction):
 #  B O T   E V E N T S
 # ─────────────────────────────────────────────
 
+async def self_ping():
+    render_url = os.environ.get("RENDER_EXTERNAL_URL", "")
+    if not render_url:
+        print("[PING] No RENDER_EXTERNAL_URL found, skipping self-ping")
+        return
+    await asyncio.sleep(30)
+    while True:
+        try:
+            async with aiohttp.ClientSession() as s:
+                async with s.get(render_url) as r:
+                    print(f"[PING] {r.status}")
+        except Exception as e:
+            print(f"[PING] Error: {e}")
+        await asyncio.sleep(300)
+
 @client.event
 async def on_ready():
     global BOT_OWNER_ID
@@ -1062,6 +1138,7 @@ async def on_ready():
     BOT_OWNER_ID = app_info.owner.id
     client.add_view(LinkView())
     load_activity()
+    asyncio.create_task(self_ping())
     print(f"[ONLINE] {client.user} — Owner: {BOT_OWNER_ID}")
 
 @client.event
@@ -1096,6 +1173,8 @@ async def on_interaction(interaction: discord.Interaction):
         elif cid == "ce_ct_text_modal": await _ce_ct_text_submit(interaction)
         elif cid == "ce_ct_image_modal": await _ce_ct_image_submit(interaction)
         elif cid == "ce_ct_btn_modal": await _ce_ct_btn_submit(interaction)
+        elif cid == "ce_author_modal": await _ce_author_submit(interaction)
+        elif cid == "ce_field_modal": await _ce_field_submit(interaction)
         return
 
     if interaction.type != discord.InteractionType.component: return
@@ -1154,9 +1233,29 @@ async def on_interaction(interaction: discord.Interaction):
                      {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_thumb", "label": "Thumbnail URL", "style": 1, "max_length": 500, "required": False, "value": state.get("thumbnail_url") or "", "placeholder": "https://example.com/thumb.png"}]}]
             await ia_modal(interaction, "ce_image_modal", "Add Images", comps); return
 
+        if action == "author":
+            comps = [
+                {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_author_name", "label": "Author Name", "style": 1, "max_length": 256, "required": False, "value": state.get("author_name") or "", "placeholder": "Author display name"}]},
+                {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_author_icon", "label": "Author Icon URL", "style": 1, "max_length": 500, "required": False, "value": state.get("author_icon") or "", "placeholder": "https://example.com/icon.png"}]},
+                {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_author_url", "label": "Author URL (clickable link)", "style": 1, "max_length": 500, "required": False, "value": state.get("author_url") or "", "placeholder": "https://example.com"}]},
+            ]
+            await ia_modal(interaction, "ce_author_modal", "Author Settings", comps); return
+
+        if action == "field":
+            comps = [
+                {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_field_name", "label": "Field Name", "style": 1, "max_length": 256, "required": True, "placeholder": "Field title"}]},
+                {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_field_value", "label": "Field Value", "style": 2, "max_length": 1024, "required": False, "placeholder": "Field content (supports markdown)"}]},
+                {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_field_inline", "label": "Inline? (yes/no)", "style": 1, "max_length": 3, "required": False, "value": "no", "placeholder": "yes or no"}]},
+            ]
+            await ia_modal(interaction, "ce_field_modal", "Add Field", comps); return
+
         if action == "json":
             comps = [{"type": 1, "components": [{"type": 4, "custom_id": "ce_f_json", "label": "Discohook JSON", "style": 2, "max_length": 4000, "required": True, "placeholder": "Paste your discohook.app JSON here..."}]}]
             await ia_modal(interaction, "ce_json_modal", "Paste Discohook JSON", comps); return
+
+        if action == "timestamp":
+            state["timestamp"] = not state.get("timestamp", False)
+            await ia_update(interaction, build_embed_builder(state)); return
 
         if action == "container":
             await ia_update(interaction, build_container_panel(state)); return
