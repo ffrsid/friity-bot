@@ -81,7 +81,7 @@ async def on_app_command_error(interaction, error):
     print(f"[TREE ERROR] {type(error).__name__}: {error}")
     try:
         if not interaction.response.is_done():
-            await interaction.response.send_message(f"❌ Error: {error}", ephemeral=True)
+            await interaction.response.send_message(f"Error: {error}", ephemeral=True)
     except:
         pass
 
@@ -137,6 +137,37 @@ async def ia_followup_rich(interaction, payload):
         await s.post(url, json=payload, headers={"Content-Type": "application/json"})
 
 # ─────────────────────────────────────────────
+#  W E B H O O K   H E L P E R S
+# ─────────────────────────────────────────────
+
+async def get_or_create_webhook(channel_id):
+    url = f"{DISCORD_API_BASE}/channels/{channel_id}/webhooks"
+    headers = {"Authorization": f"Bot {DISCORD_BOT_TOKEN}", "Content-Type": "application/json"}
+    async with aiohttp.ClientSession() as s:
+        async with s.get(url, headers=headers) as r:
+            webhooks = await r.json()
+            if isinstance(webhooks, list):
+                for wh in webhooks:
+                    if wh.get("name") == "Friity Embed":
+                        return wh["id"], wh["token"]
+        async with s.post(url, json={"name": "Friity Embed"}, headers=headers) as r:
+            wh = await r.json()
+            return wh.get("id"), wh.get("token")
+
+async def webhook_send(channel_id, payload, username=None, avatar_url=None):
+    wh_id, wh_token = await get_or_create_webhook(channel_id)
+    if not wh_id or not wh_token:
+        return await api_post(channel_id, payload)
+    url = f"{DISCORD_API_BASE}/webhooks/{wh_id}/{wh_token}?wait=true"
+    data = {**payload}
+    if username: data["username"] = username
+    if avatar_url: data["avatar_url"] = avatar_url
+    async with aiohttp.ClientSession() as s:
+        async with s.post(url, json=data, headers={"Content-Type": "application/json"}) as r:
+            try: return await r.json()
+            except: return {}
+
+# ─────────────────────────────────────────────
 #  E M B E D   P A Y L O A D S
 # ─────────────────────────────────────────────
 
@@ -148,43 +179,43 @@ LANG_OPTIONS = [
 
 PUNISHMENTS_CONTENT = {
     "en": (
-        "## ◈ CELESTIALS DRAGONS  ╱  SANCTIONS SYSTEM\n"
+        "## CELESTIALS DRAGONS  ╱  SANCTIONS SYSTEM\n"
         "-# ╰─ All sanctions are applied based on severity and member history.\n\n"
-        "**𝐈.  𝗪𝗔𝗥𝗡𝗜𝗡𝗚** ▸ Formal warning. Three warns = blacklist 1 month.\n"
-        "**𝐈𝐈.  𝗠𝗨𝗧𝗘** ▸ Temporary removal of communication privileges.\n"
-        "**𝐈𝐈𝐈.  𝗧𝗘𝗠𝗣 𝗕𝗔𝗡** ▸ First = 1 month. Increases until permanent.\n"
-        "**𝐈𝐕.  𝗣𝗘𝗥𝗠 𝗕𝗔𝗡** ▸ No appeal. For severe violations.\n\n"
-        "**— Strict violations (immediate perm ban) —**\n"
-        "› Leaks · Doxxing · Grooming · CP jokes · Threats\n\n"
+        "**I.  WARNING** ─ Formal warning. Three warns = blacklist 1 month.\n"
+        "**II.  MUTE** ─ Temporary removal of communication privileges.\n"
+        "**III.  TEMP BAN** ─ First = 1 month. Increases until permanent.\n"
+        "**IV.  PERM BAN** ─ No appeal. For severe violations.\n\n"
+        "**─ Strict violations (immediate perm ban) ─**\n"
+        "Leaks · Doxxing · Grooming · CP jokes · Threats\n\n"
         "-# ╰─ Celestials Dragons  ·  Punishments"
     ),
     "es": (
-        "## ◈ CELESTIALS DRAGONS  ╱  SISTEMA DE SANCIONES\n"
+        "## CELESTIALS DRAGONS  ╱  SISTEMA DE SANCIONES\n"
         "-# ╰─ Todas las sanciones se aplican según gravedad e historial.\n\n"
-        "**𝐈.  𝗔𝗗𝗩𝗘𝗥𝗧𝗘𝗡𝗖𝗜𝗔** ▸ Advertencia formal. Tres = blacklist 1 mes.\n"
-        "**𝐈𝐈.  𝗠𝗨𝗧𝗘** ▸ Eliminación temporal de privilegios de comunicación.\n"
-        "**𝐈𝐈𝐈.  𝗕𝗔𝗡 𝗧𝗘𝗠𝗣** ▸ Primera = 1 mes. Incrementa hasta permanente.\n"
-        "**𝐈𝐕.  𝗕𝗔𝗡 𝗣𝗘𝗥𝗠** ▸ Sin apelación. Para violaciones graves.\n\n"
-        "**— Violaciones estrictas (ban inmediato) —**\n"
-        "› Leaks · Doxxing · Grooming · CP jokes · Amenazas\n\n"
+        "**I.  ADVERTENCIA** ─ Advertencia formal. Tres = blacklist 1 mes.\n"
+        "**II.  MUTE** ─ Eliminación temporal de privilegios de comunicación.\n"
+        "**III.  BAN TEMP** ─ Primera = 1 mes. Incrementa hasta permanente.\n"
+        "**IV.  BAN PERM** ─ Sin apelación. Para violaciones graves.\n\n"
+        "**─ Violaciones estrictas (ban inmediato) ─**\n"
+        "Leaks · Doxxing · Grooming · CP jokes · Amenazas\n\n"
         "-# ╰─ Celestials Dragons  ·  Punishments"
     ),
     "pt": (
-        "## ◈ CELESTIALS DRAGONS  ╱  SISTEMA DE SANÇÕES\n"
+        "## CELESTIALS DRAGONS  ╱  SISTEMA DE SANÇÕES\n"
         "-# ╰─ Todas as sanções são aplicadas com base na gravidade e histórico.\n\n"
-        "**𝐈.  𝗔𝗩𝗜𝗦𝗢** ▸ Aviso formal. Três = blacklist 1 mês.\n"
-        "**𝐈𝐈.  𝗠𝗨𝗧𝗘** ▸ Remoção temporária dos privilégios de comunicação.\n"
-        "**𝐈𝐈𝐈.  𝗕𝗔𝗡 𝗧𝗘𝗠𝗣** ▸ Primeira = 1 mês. Aumenta até permanente.\n"
-        "**𝐈𝐕.  𝗕𝗔𝗡 𝗣𝗘𝗥𝗠** ▸ Sem apelação. Para violações graves.\n\n"
-        "**— Violações estritas (ban imediato) —**\n"
-        "› Leaks · Doxxing · Grooming · CP jokes · Ameaças\n\n"
+        "**I.  AVISO** ─ Aviso formal. Três = blacklist 1 mês.\n"
+        "**II.  MUTE** ─ Remoção temporária dos privilégios de comunicação.\n"
+        "**III.  BAN TEMP** ─ Primeira = 1 mês. Aumenta até permanente.\n"
+        "**IV.  BAN PERM** ─ Sem apelação. Para violações graves.\n\n"
+        "**─ Violações estritas (ban imediato) ─**\n"
+        "Leaks · Doxxing · Grooming · CP jokes · Ameaças\n\n"
         "-# ╰─ Celestials Dragons  ·  Punishments"
     ),
 }
 
 def build_pun_accept():
     return {"flags": 1 << 15, "components": [{"type": 17, "components": [
-        {"type": 10, "content": "▸ By accepting, you acknowledge that you have read and understood the punishment system of **Celestials Dragons**.\n╰─ Violations will result in the sanctions described — ignorance is __not__ an excuse."},
+        {"type": 10, "content": "─ By accepting, you acknowledge that you have read and understood the punishment system of **Celestials Dragons**.\n╰─ Violations will result in the sanctions described ─ ignorance is __not__ an excuse."},
         {"type": 14, "divider": True, "spacing": 1},
         {"type": 9, "components": [{"type": 10, "content": "-# ╰─ Tap to confirm you understand."}],
          "accessory": {"type": 2, "style": 3, "label": "Accepted", "custom_id": "accept_punishments", "emoji": {"id": "1497991468584014025", "name": "emoji_2"}}}
@@ -193,7 +224,7 @@ def build_pun_accept():
 def build_pun_lang():
     return {"flags": 1 << 15, "components": [
         {"type": 17, "components": [
-            {"type": 10, "content": "▸ Choose your language to view the punishment system.\n╰─ The content will be shown below."},
+            {"type": 10, "content": "─ Choose your language to view the punishment system.\n╰─ The content will be shown below."},
             {"type": 14, "divider": True, "spacing": 1},
             {"type": 10, "content": "-# ╰─ Select your language below."}
         ]},
@@ -229,11 +260,11 @@ def build_rules_embed():
 
 def build_overview_embed():
     return {"flags": 1 << 15, "components": [{"type": 17, "components": [{"type": 10, "content": (
-        "## ◈ CELESTIALS DRAGONS  ╱  OVERVIEW\n"
+        "## CELESTIALS DRAGONS  ╱  OVERVIEW\n"
         "-# ╰─ Welcome to Celestials Dragons.\n\n"
-        "▸ Official competitive TSB clan in **TSBL** (TSB LATAM).\n"
-        "▸ Competing in SAE (East) and SAW (West) regions.\n\n"
-        f"**— Channels —**\n› <#{CHANNEL_RULES}> — Rules\n› <#{CHANNEL_PUNISHMENTS}> — Punishments\n\n"
+        "─ Official competitive TSB clan in **TSBL** (TSB LATAM).\n"
+        "─ Competing in SAE (East) and SAW (West) regions.\n\n"
+        f"**─ Channels ─**\n<#{CHANNEL_RULES}> ─ Rules\n<#{CHANNEL_PUNISHMENTS}> ─ Punishments\n\n"
         "-# ╰─ Celestials Dragons  ·  Overview"
     )}]}]}
 
@@ -243,76 +274,76 @@ def build_overview_embed():
 
 CMD_DETAILS = {
     "tier": {
-        "en": "## ◈ `>tier` — Assign Phases\n```\n>tier <phase> <subtier> <class> [@user] <region> [note: text]\n```\n**Phases:** `0` `1` `2` `3` `4` `5` `app`\n**Subtiers:** `low` `mid` `high`\n**Classes:** `weak` `stable` `strong`\n**Regions:** `sp` `mi` `da` `la`\n\n**Example:**\n```\n>tier 1 high stable @player sp note: great performance\n```\n╰─ Requires **TRYOUTER** role.",
-        "es": "## ◈ `>tier` — Asignar Phases\n```\n>tier <phase> <subtier> <clase> [@user] <región> [note: texto]\n```\n**Phases:** `0` `1` `2` `3` `4` `5` `app`\n**Subtiers:** `low` `mid` `high`\n**Clases:** `weak` `stable` `strong`\n**Regiones:** `sp` `mi` `da` `la`\n\n**Ejemplo:**\n```\n>tier 1 high stable @jugador sp note: gran rendimiento\n```\n╰─ Requiere rol **TRYOUTER**.",
-        "pt": "## ◈ `>tier` — Atribuir Phases\n```\n>tier <phase> <subtier> <classe> [@user] <região> [note: texto]\n```\n**Phases:** `0` `1` `2` `3` `4` `5` `app`\n**Subtiers:** `low` `mid` `high`\n**Classes:** `weak` `stable` `strong`\n**Regiões:** `sp` `mi` `da` `la`\n\n**Exemplo:**\n```\n>tier 1 high stable @jogador sp note: ótimo desempenho\n```\n╰─ Requer papel **TRYOUTER**.",
+        "en": "## `>tier` ─ Assign Phases\n```\n>tier <phase> <subtier> <class> [@user] <region> [note: text]\n```\n**Phases:** `0` `1` `2` `3` `4` `5` `app`\n**Subtiers:** `low` `mid` `high`\n**Classes:** `weak` `stable` `strong`\n**Regions:** `sp` `mi` `da` `la`\n\n**Example:**\n```\n>tier 1 high stable @player sp note: great performance\n```\n╰─ Requires **TRYOUTER** role.",
+        "es": "## `>tier` ─ Asignar Phases\n```\n>tier <phase> <subtier> <clase> [@user] <región> [note: texto]\n```\n**Phases:** `0` `1` `2` `3` `4` `5` `app`\n**Subtiers:** `low` `mid` `high`\n**Clases:** `weak` `stable` `strong`\n**Regiones:** `sp` `mi` `da` `la`\n\n**Ejemplo:**\n```\n>tier 1 high stable @jugador sp note: gran rendimiento\n```\n╰─ Requiere rol **TRYOUTER**.",
+        "pt": "## `>tier` ─ Atribuir Phases\n```\n>tier <phase> <subtier> <classe> [@user] <região> [note: texto]\n```\n**Phases:** `0` `1` `2` `3` `4` `5` `app`\n**Subtiers:** `low` `mid` `high`\n**Classes:** `weak` `stable` `strong`\n**Regiões:** `sp` `mi` `da` `la`\n\n**Exemplo:**\n```\n>tier 1 high stable @jogador sp note: ótimo desempenho\n```\n╰─ Requer papel **TRYOUTER**.",
     },
     "mods": {
-        "en": "## ◈ `>mods` — Staff Help\n```\n>mods <question>\n```\nAsk Friity about any staff command.\n\n**Examples:**\n```\n>mods how do I use the tier command?\n>mods how do I create a poll?\n>mods how does activity check work?\n```\n╰─ Instant hardcoded answers — no AI.",
-        "es": "## ◈ `>mods` — Ayuda de Staff\n```\n>mods <pregunta>\n```\nPreguntale a Friity sobre cualquier comando de staff.\n\n**Ejemplos:**\n```\n>mods cómo uso el comando tier?\n>mods cómo creo una encuesta?\n>mods cómo funciona el activity check?\n```\n╰─ Respuestas instantáneas — sin IA.",
-        "pt": "## ◈ `>mods` — Ajuda de Staff\n```\n>mods <pergunta>\n```\nPergunte ao Friity sobre qualquer comando de staff.\n\n**Exemplos:**\n```\n>mods como uso o comando tier?\n>mods como crio uma enquete?\n>mods como funciona o activity check?\n```\n╰─ Respostas instantâneas — sem IA.",
+        "en": "## `>mods` ─ Staff Help\n```\n>mods <question>\n```\nAsk Friity about any staff command.\n\n**Examples:**\n```\n>mods how do I use the tier command?\n>mods how do I create a poll?\n>mods how does activity check work?\n```\n╰─ Instant hardcoded answers ─ no AI.",
+        "es": "## `>mods` ─ Ayuda de Staff\n```\n>mods <pregunta>\n```\nPreguntale a Friity sobre cualquier comando de staff.\n\n**Ejemplos:**\n```\n>mods cómo uso el comando tier?\n>mods cómo creo una encuesta?\n>mods cómo funciona el activity check?\n```\n╰─ Respuestas instantáneas ─ sin IA.",
+        "pt": "## `>mods` ─ Ajuda de Staff\n```\n>mods <pergunta>\n```\nPergunte ao Friity sobre qualquer comando de staff.\n\n**Exemplos:**\n```\n>mods como uso o comando tier?\n>mods como crio uma enquete?\n>mods como funciona o activity check?\n```\n╰─ Respostas instantâneas ─ sem IA.",
     },
     "poll": {
-        "en": "## ◈ `>poll` — Create Polls\n```\n>poll <question> | <opt1> | <opt2> vote: N\n>poll <question> | <opt1> | <opt2> time: N unit\n```\n**Time units:** `second` `minute` `hour` `day` `week`\n\n**Examples:**\n```\n>poll Best region? | SAE | SAW vote: 20\n>poll Active this week? | Yes | No time: 24 hours\n```\n╰─ Requires **PollsEvent** role. Polls channel only.",
-        "es": "## ◈ `>poll` — Crear Encuestas\n```\n>poll <pregunta> | <op1> | <op2> vote: N\n>poll <pregunta> | <op1> | <op2> time: N unidad\n```\n**Unidades:** `second` `minute` `hour` `day` `week`\n\n**Ejemplos:**\n```\n>poll Mejor región? | SAE | SAW vote: 20\n>poll Activos? | Sí | No time: 24 hours\n```\n╰─ Requiere rol **PollsEvent**. Solo canal de polls.",
-        "pt": "## ◈ `>poll` — Criar Enquetes\n```\n>poll <pergunta> | <op1> | <op2> vote: N\n>poll <pergunta> | <op1> | <op2> time: N unidade\n```\n**Unidades:** `second` `minute` `hour` `day` `week`\n\n**Exemplos:**\n```\n>poll Melhor região? | SAE | SAW vote: 20\n>poll Ativos? | Sim | Não time: 24 hours\n```\n╰─ Requer papel **PollsEvent**. Apenas canal de polls.",
+        "en": "## `>poll` ─ Create Polls\n```\n>poll <question> | <opt1> | <opt2> vote: N\n>poll <question> | <opt1> | <opt2> time: N unit\n```\n**Time units:** `second` `minute` `hour` `day` `week`\n\n**Examples:**\n```\n>poll Best region? | SAE | SAW vote: 20\n>poll Active this week? | Yes | No time: 24 hours\n```\n╰─ Requires **PollsEvent** role. Polls channel only.",
+        "es": "## `>poll` ─ Crear Encuestas\n```\n>poll <pregunta> | <op1> | <op2> vote: N\n>poll <pregunta> | <op1> | <op2> time: N unidad\n```\n**Unidades:** `second` `minute` `hour` `day` `week`\n\n**Ejemplos:**\n```\n>poll Mejor región? | SAE | SAW vote: 20\n>poll Activos? | Sí | No time: 24 hours\n```\n╰─ Requiere rol **PollsEvent**. Solo canal de polls.",
+        "pt": "## `>poll` ─ Criar Enquetes\n```\n>poll <pergunta> | <op1> | <op2> vote: N\n>poll <pergunta> | <op1> | <op2> time: N unidade\n```\n**Unidades:** `second` `minute` `hour` `day` `week`\n\n**Exemplos:**\n```\n>poll Melhor região? | SAE | SAW vote: 20\n>poll Ativos? | Sim | Não time: 24 hours\n```\n╰─ Requer papel **PollsEvent**. Apenas canal de polls.",
     },
     "activity": {
-        "en": "## ◈ `?activity check` — Activity Checks\n```\n?activity check <message> @everyone\n```\n**How it works:**\n```\n✅ React  →  streak +1\n❌ Miss   →  streak resets to 0\n```\n**Example:**\n```\n?activity check Weekly check! @everyone\n```\n╰─ Only **bot owner** can launch activity checks.",
-        "es": "## ◈ `?activity check` — Activity Checks\n```\n?activity check <mensaje> @everyone\n```\n**Cómo funciona:**\n```\n✅ Reaccionar  →  streak +1\n❌ Saltarse    →  streak vuelve a 0\n```\n**Ejemplo:**\n```\n?activity check ¡Activity semanal! @everyone\n```\n╰─ Solo el **owner del bot** puede lanzarlo.",
-        "pt": "## ◈ `?activity check` — Activity Checks\n```\n?activity check <mensagem> @everyone\n```\n**Como funciona:**\n```\n✅ Reagir   →  streak +1\n❌ Perder   →  streak volta a 0\n```\n**Exemplo:**\n```\n?activity check Activity semanal! @everyone\n```\n╰─ Apenas o **dono do bot** pode lançar.",
+        "en": "## `?activity check` ─ Activity Checks\n```\n?activity check <message> @everyone\n```\n**How it works:**\n```\nReact  ─  streak +1\nMiss   ─  streak resets to 0\n```\n**Example:**\n```\n?activity check Weekly check! @everyone\n```\n╰─ Only **bot owner** can launch activity checks.",
+        "es": "## `?activity check` ─ Activity Checks\n```\n?activity check <mensaje> @everyone\n```\n**Cómo funciona:**\n```\nReaccionar  ─  streak +1\nSaltarse    ─  streak vuelve a 0\n```\n**Ejemplo:**\n```\n?activity check Activity semanal! @everyone\n```\n╰─ Solo el **owner del bot** puede lanzarlo.",
+        "pt": "## `?activity check` ─ Activity Checks\n```\n?activity check <mensagem> @everyone\n```\n**Como funciona:**\n```\nReagir   ─  streak +1\nPerder   ─  streak volta a 0\n```\n**Exemplo:**\n```\n?activity check Activity semanal! @everyone\n```\n╰─ Apenas o **dono do bot** pode lançar.",
     },
 }
 
 SETTINGS_CONTENT = {
     "en": (
-        "## ◈ SETTINGS  ╱  Command Reference\n"
+        "## SETTINGS  ╱  Command Reference\n"
         "-# ╰─ All available staff commands.\n\n"
         "```\n"
-        "/staffpanel     →  Open this panel\n"
-        ">tier           →  Assign competitive phase\n"
-        ">mods           →  Ask about any command\n"
-        ">ask            →  AI assistant (clan/TSBL info)\n"
-        ">poll           →  Create a poll\n"
-        ">info           →  View Roblox profile\n"
-        "?activity check →  Launch activity check\n"
-        "/setuppunishments →  Send punishments embed\n"
-        "/setuprules       →  Send rules embed\n"
-        "/setupoverview    →  Send overview embed\n"
+        "/staffpanel     ─  Open this panel\n"
+        ">tier           ─  Assign competitive phase\n"
+        ">mods           ─  Ask about any command\n"
+        ">ask            ─  AI assistant (clan/TSBL info)\n"
+        ">poll           ─  Create a poll\n"
+        ">info           ─  View Roblox profile\n"
+        "?activity check ─  Launch activity check\n"
+        "/setuppunishments ─  Send punishments embed\n"
+        "/setuprules       ─  Send rules embed\n"
+        "/setupoverview    ─  Send overview embed\n"
         "```\n"
         "-# ╰─ Celestials Dragons  ·  Friity Staff"
     ),
     "es": (
-        "## ◈ SETTINGS  ╱  Referencia de Comandos\n"
+        "## SETTINGS  ╱  Referencia de Comandos\n"
         "-# ╰─ Todos los comandos de staff disponibles.\n\n"
         "```\n"
-        "/staffpanel     →  Abrir este panel\n"
-        ">tier           →  Asignar phase competitiva\n"
-        ">mods           →  Preguntar sobre un comando\n"
-        ">ask            →  Asistente IA (info clan/TSBL)\n"
-        ">poll           →  Crear una encuesta\n"
-        ">info           →  Ver perfil de Roblox\n"
-        "?activity check →  Lanzar activity check\n"
-        "/setuppunishments →  Enviar embed de sanciones\n"
-        "/setuprules       →  Enviar embed de reglas\n"
-        "/setupoverview    →  Enviar embed de overview\n"
+        "/staffpanel     ─  Abrir este panel\n"
+        ">tier           ─  Asignar phase competitiva\n"
+        ">mods           ─  Preguntar sobre un comando\n"
+        ">ask            ─  Asistente IA (info clan/TSBL)\n"
+        ">poll           ─  Crear una encuesta\n"
+        ">info           ─  Ver perfil de Roblox\n"
+        "?activity check ─  Lanzar activity check\n"
+        "/setuppunishments ─  Enviar embed de sanciones\n"
+        "/setuprules       ─  Enviar embed de reglas\n"
+        "/setupoverview    ─  Enviar embed de overview\n"
         "```\n"
         "-# ╰─ Celestials Dragons  ·  Friity Staff"
     ),
     "pt": (
-        "## ◈ SETTINGS  ╱  Referência de Comandos\n"
+        "## SETTINGS  ╱  Referência de Comandos\n"
         "-# ╰─ Todos os comandos de staff disponíveis.\n\n"
         "```\n"
-        "/staffpanel     →  Abrir este painel\n"
-        ">tier           →  Atribuir phase competitiva\n"
-        ">mods           →  Perguntar sobre um comando\n"
-        ">ask            →  Assistente IA (info clã/TSBL)\n"
-        ">poll           →  Criar uma enquete\n"
-        ">info           →  Ver perfil Roblox\n"
-        "?activity check →  Lançar activity check\n"
-        "/setuppunishments →  Enviar embed de punições\n"
-        "/setuprules       →  Enviar embed de regras\n"
-        "/setupoverview    →  Enviar embed de overview\n"
+        "/staffpanel     ─  Abrir este painel\n"
+        ">tier           ─  Atribuir phase competitiva\n"
+        ">mods           ─  Perguntar sobre um comando\n"
+        ">ask            ─  Assistente IA (info clã/TSBL)\n"
+        ">poll           ─  Criar uma enquete\n"
+        ">info           ─  Ver perfil Roblox\n"
+        "?activity check ─  Lançar activity check\n"
+        "/setuppunishments ─  Enviar embed de punições\n"
+        "/setuprules       ─  Enviar embed de regras\n"
+        "/setupoverview    ─  Enviar embed de overview\n"
         "```\n"
         "-# ╰─ Celestials Dragons  ·  Friity Staff"
     ),
@@ -325,44 +356,44 @@ def build_settings(lang):
             {"type": 10, "content": SETTINGS_CONTENT[lang]},
             {"type": 14, "divider": True, "spacing": 1},
             {"type": 1, "components": [
-                {"type": 2, "style": 2, "label": "← Back", "custom_id": f"sp:back:{lang}"},
+                {"type": 2, "style": 2, "label": "Back", "custom_id": f"sp:back:{lang}"},
             ]},
             {"type": 1, "components": [{"type": 3, "custom_id": f"sp:lang:{lang}", "placeholder": "Language / Idioma / Língua", "options": LANG_OPTIONS}]},
         ]}]
     }
 
 def build_cmd_detail(cmd, lang):
-    content = CMD_DETAILS.get(cmd, {}).get(lang, "## Updating...\n▸ This section is being updated.")
+    content = CMD_DETAILS.get(cmd, {}).get(lang, "## Updating...\n─ This section is being updated.")
     return {
         "flags": COMPONENTS_V2_FLAG | 64,
         "components": [{"type": 17, "components": [
             {"type": 10, "content": content},
             {"type": 14, "divider": True, "spacing": 1},
-            {"type": 1, "components": [{"type": 2, "style": 2, "label": "← Back", "custom_id": f"sp:back:{lang}"}]},
+            {"type": 1, "components": [{"type": 2, "style": 2, "label": "Back", "custom_id": f"sp:back:{lang}"}]},
             {"type": 1, "components": [{"type": 3, "custom_id": f"sp:lang:{lang}", "placeholder": "Language / Idioma / Língua", "options": LANG_OPTIONS}]},
         ]}]
     }
 
 def build_embeds_panel(lang, user_id):
     if user_id not in EMBED_ALLOWED:
-        locked = {"en": "## 🔒 Embeds / Containers\n-# ╰─ Access Denied\n\n▸ This section is **locked**.\n╰─ Only **Sid** and **Space** can launch embeds.", "es": "## 🔒 Embeds / Containers\n-# ╰─ Acceso Denegado\n\n▸ Esta sección está **bloqueada**.\n╰─ Solo **Sid** y **Space** pueden lanzar embeds.", "pt": "## 🔒 Embeds / Containers\n-# ╰─ Acesso Negado\n\n▸ Esta seção está **bloqueada**.\n╰─ Apenas **Sid** e **Space** podem lançar embeds."}
+        locked = {"en": "## Embeds / Containers\n-# ╰─ Access Denied\n\n─ This section is **locked**.\n╰─ Only **Sid** and **Space** can launch embeds.", "es": "## Embeds / Containers\n-# ╰─ Acceso Denegado\n\n─ Esta sección está **bloqueada**.\n╰─ Solo **Sid** y **Space** pueden lanzar embeds.", "pt": "## Embeds / Containers\n-# ╰─ Acesso Negado\n\n─ Esta seção está **bloqueada**.\n╰─ Apenas **Sid** e **Space** podem lançar embeds."}
         return {"flags": COMPONENTS_V2_FLAG | 64, "components": [{"type": 17, "components": [
             {"type": 10, "content": locked[lang]},
             {"type": 14, "divider": True, "spacing": 1},
-            {"type": 1, "components": [{"type": 2, "style": 2, "label": "← Back", "custom_id": f"sp:back:{lang}"}]},
+            {"type": 1, "components": [{"type": 2, "style": 2, "label": "Back", "custom_id": f"sp:back:{lang}"}]},
         ]}]}
 
     labels = {
-        "en": {"title": "## ◈ Embeds / Containers", "sub": "-# ╰─ Launch official clan embeds.", "lr": "Launch Rules", "lp": "Launch Punishments", "lo": "Launch Overview", "back": "← Back", "ft": "-# ╰─ Only Sid and Space can launch embeds."},
-        "es": {"title": "## ◈ Embeds / Containers", "sub": "-# ╰─ Lanzar embeds oficiales del clan.", "lr": "Lanzar Reglas", "lp": "Lanzar Sanciones", "lo": "Lanzar Overview", "back": "← Volver", "ft": "-# ╰─ Solo Sid y Space pueden lanzar embeds."},
-        "pt": {"title": "## ◈ Embeds / Containers", "sub": "-# ╰─ Lançar embeds oficiais do clã.", "lr": "Lançar Regras", "lp": "Lançar Punições", "lo": "Lançar Overview", "back": "← Voltar", "ft": "-# ╰─ Apenas Sid e Space podem lançar embeds."},
+        "en": {"title": "## Embeds / Containers", "sub": "-# ╰─ Launch official clan embeds.", "lr": "Launch Rules", "lp": "Launch Punishments", "lo": "Launch Overview", "back": "Back", "ft": "-# ╰─ Only Sid and Space can launch embeds."},
+        "es": {"title": "## Embeds / Containers", "sub": "-# ╰─ Lanzar embeds oficiales del clan.", "lr": "Lanzar Reglas", "lp": "Lanzar Sanciones", "lo": "Lanzar Overview", "back": "Volver", "ft": "-# ╰─ Solo Sid y Space pueden lanzar embeds."},
+        "pt": {"title": "## Embeds / Containers", "sub": "-# ╰─ Lançar embeds oficiais do clã.", "lr": "Lançar Regras", "lp": "Lançar Punições", "lo": "Lançar Overview", "back": "Voltar", "ft": "-# ╰─ Apenas Sid e Space podem lançar embeds."},
     }
     L = labels[lang]
     return {"flags": COMPONENTS_V2_FLAG | 64, "components": [{"type": 17, "components": [
         {"type": 10, "content": L["title"]},
         {"type": 10, "content": L["sub"]},
         {"type": 14, "divider": True, "spacing": 1},
-        {"type": 10, "content": f"▸ **Rules** → <#{CHANNEL_RULES}>\n▸ **Punishments** → <#{CHANNEL_PUNISHMENTS}>\n▸ **Overview** → <#{CHANNEL_OVERVIEW}>"},
+        {"type": 10, "content": f"─ **Rules** ─ <#{CHANNEL_RULES}>\n─ **Punishments** ─ <#{CHANNEL_PUNISHMENTS}>\n─ **Overview** ─ <#{CHANNEL_OVERVIEW}>"},
         {"type": 14, "divider": True, "spacing": 1},
         {"type": 1, "components": [
             {"type": 2, "style": 3, "label": L["lr"], "custom_id": f"sp:launch_rules:{lang}"},
@@ -376,14 +407,14 @@ def build_embeds_panel(lang, user_id):
 
 def build_main_panel(lang="en"):
     labels = {
-        "en": {"title": "## ◈ CELESTIALS DRAGONS  ╱  STAFF PANEL", "sub": "-# ╰─ Type a keyword in the modal to navigate.", "sec": "**— Available sections —**",
-               "body": "```\nsettings      →  Command reference\ntier          →  How to use >tier\nmods          →  How to use >mods\npoll          →  How to use >poll\nactivity      →  How to use ?activity\nembeds        →  Launch clan embeds 🔒\ncreate_embed  →  Custom embed creator 🔒\n```",
+        "en": {"title": "## CELESTIALS DRAGONS  ╱  STAFF PANEL", "sub": "-# ╰─ Type a keyword in the modal to navigate.",
+               "body": "```\ncreate_embed  ─  Custom embed / container creator\n```\n-# ╰─ Other sections coming soon.",
                "ft": "-# ╰─ Celestials Dragons  ·  Friity Staff", "lang": "-# ╰─ Language:"},
-        "es": {"title": "## ◈ CELESTIALS DRAGONS  ╱  PANEL DE STAFF", "sub": "-# ╰─ Escribí una palabra clave en el modal para navegar.", "sec": "**— Secciones disponibles —**",
-               "body": "```\nsettings      →  Referencia de comandos\ntier          →  Cómo usar >tier\nmods          →  Cómo usar >mods\npoll          →  Cómo usar >poll\nactivity      →  Cómo usar ?activity\nembeds        →  Lanzar embeds del clan 🔒\ncreate_embed  →  Creador de embed custom 🔒\n```",
+        "es": {"title": "## CELESTIALS DRAGONS  ╱  PANEL DE STAFF", "sub": "-# ╰─ Escribí una palabra clave en el modal para navegar.",
+               "body": "```\ncreate_embed  ─  Creador de embed / container custom\n```\n-# ╰─ Otras secciones próximamente.",
                "ft": "-# ╰─ Celestials Dragons  ·  Friity Staff", "lang": "-# ╰─ Idioma:"},
-        "pt": {"title": "## ◈ CELESTIALS DRAGONS  ╱  PAINEL DE STAFF", "sub": "-# ╰─ Digite uma palavra-chave no modal para navegar.", "sec": "**— Seções disponíveis —**",
-               "body": "```\nsettings      →  Referência de comandos\ntier          →  Como usar >tier\nmods          →  Como usar >mods\npoll          →  Como usar >poll\nactivity      →  Como usar ?activity\nembeds        →  Lançar embeds do clã 🔒\ncreate_embed  →  Criador de embed custom 🔒\n```",
+        "pt": {"title": "## CELESTIALS DRAGONS  ╱  PAINEL DE STAFF", "sub": "-# ╰─ Digite uma palavra-chave no modal para navegar.",
+               "body": "```\ncreate_embed  ─  Criador de embed / container custom\n```\n-# ╰─ Outras seções em breve.",
                "ft": "-# ╰─ Celestials Dragons  ·  Friity Staff", "lang": "-# ╰─ Idioma:"},
     }
     L = labels[lang]
@@ -391,7 +422,6 @@ def build_main_panel(lang="en"):
         {"type": 10, "content": L["title"]},
         {"type": 10, "content": L["sub"]},
         {"type": 14, "divider": True, "spacing": 1},
-        {"type": 10, "content": L["sec"]},
         {"type": 10, "content": L["body"]},
         {"type": 14, "divider": True, "spacing": 1},
         {"type": 10, "content": L["lang"]},
@@ -414,13 +444,13 @@ def build_create_embed_result(title, description, color_hex, channel_id):
 
 SECTION_MAP = {
     "panel": "main", "main": "main",
-    "settings": "settings",
-    "tier": "tier", "mods": "mods", "poll": "poll", "activity": "activity",
-    "embeds": "embeds", "containers": "embeds",
+    "settings": "placeholder",
+    "tier": "placeholder", "mods": "placeholder", "poll": "placeholder", "activity": "placeholder",
+    "embeds": "placeholder", "containers": "placeholder",
     "create_embed": "create_embed", "create": "create_embed",
-    "rules": "launch_rules", "reglas": "launch_rules",
-    "punishments": "launch_pun", "sanciones": "launch_pun", "pun": "launch_pun",
-    "overview": "launch_ov",
+    "rules": "placeholder", "reglas": "placeholder",
+    "punishments": "placeholder", "sanciones": "placeholder", "pun": "placeholder",
+    "overview": "placeholder",
 }
 
 # ─────────────────────────────────────────────
@@ -445,32 +475,41 @@ embed_builders = {}
 def new_embed_state():
     return {"title": None, "description": None, "color": 0x5865F2, "color_name": "Blurple",
             "image_url": None, "thumbnail_url": None, "footer_text": None,
-            "channel_id": None, "json_mode": False, "raw_json": None}
+            "channel_id": None, "json_mode": False, "raw_json": None,
+            "webhook_name": None, "webhook_avatar": None,
+            "container_parts": []}
 
 def _trunc(s, n):
-    if not s: return "*(not set)*"
+    if not s: return "─"
     return (s[:n] + "…") if len(s) > n else s
 
 def build_embed_builder(state):
     t = _trunc(state["title"], 40)
     d = _trunc(state["description"], 50)
     c = state["color_name"]
-    ch = f"<#{state['channel_id']}>" if state["channel_id"] else "*(not set)*"
-    img = "✅" if state["image_url"] else "❌"
-    thumb = "✅" if state["thumbnail_url"] else "❌"
+    ch = f"<#{state['channel_id']}>" if state["channel_id"] else "─"
+    img = "Yes" if state["image_url"] else "No"
+    thumb = "Yes" if state["thumbnail_url"] else "No"
     ft = _trunc(state["footer_text"], 30)
-    mode = "📋 JSON (discohook)" if state["json_mode"] else "✏️ Manual"
+    mode = "JSON (discohook)" if state["json_mode"] else "Manual"
+    parts = len(state.get("container_parts", []))
+    wn = state.get("webhook_name") or "Default"
+    wa = "Yes" if state.get("webhook_avatar") else "No"
 
     status = (
-        "## ◈ Create Custom Embed\n"
+        "## Create Custom Embed\n"
         "-# ╰─ Build your embed step by step.\n\n"
-        f"▸ **Title:** {t}\n"
-        f"▸ **Description:** {d}\n"
-        f"▸ **Color:** #{state['color']:06X} ({c})\n"
-        f"▸ **Channel:** {ch}\n"
-        f"▸ **Image:** {img}  ·  **Thumbnail:** {thumb}\n"
-        f"▸ **Footer:** {ft}\n"
-        f"▸ **Mode:** {mode}"
+        "```\n"
+        f"Title:       {t}\n"
+        f"Description: {d}\n"
+        f"Color:       #{state['color']:06X} ({c})\n"
+        f"Channel:     {ch}\n"
+        f"Image:       {img}  ·  Thumbnail: {thumb}\n"
+        f"Footer:      {ft}\n"
+        f"Mode:        {mode}\n"
+        f"Components:  {parts}\n"
+        f"Profile:     {wn}  ·  Avatar: {wa}\n"
+        "```"
     )
 
     return {"flags": COMPONENTS_V2_FLAG | 64, "components": [
@@ -479,17 +518,54 @@ def build_embed_builder(state):
             {"type": 14, "divider": True, "spacing": 1},
             {"type": 10, "content": "-# ╰─ Celestials Dragons  ·  Embed Builder"},
         ]},
-        {"type": 1, "components": [{"type": 3, "custom_id": "ce:color", "placeholder": "🎨 Select Color", "options": COLOR_PRESETS}]},
-        {"type": 1, "components": [{"type": 8, "custom_id": "ce:channel", "placeholder": "📌 Select Channel", "channel_types": [0]}]},
+        {"type": 1, "components": [{"type": 3, "custom_id": "ce:color", "placeholder": "Select Color", "options": COLOR_PRESETS}]},
+        {"type": 1, "components": [{"type": 8, "custom_id": "ce:channel", "placeholder": "Select Channel", "channel_types": [0]}]},
         {"type": 1, "components": [
             {"type": 2, "style": 1, "label": "Edit Text", "custom_id": "ce:text"},
             {"type": 2, "style": 1, "label": "Images", "custom_id": "ce:image"},
             {"type": 2, "style": 2, "label": "Paste JSON", "custom_id": "ce:json"},
         ]},
         {"type": 1, "components": [
+            {"type": 2, "style": 1, "label": "Container", "custom_id": "ce:container"},
+            {"type": 2, "style": 2, "label": "Profile", "custom_id": "ce:profile"},
+            {"type": 2, "style": 3, "label": "Preview", "custom_id": "ce:preview"},
+        ]},
+        {"type": 1, "components": [
             {"type": 2, "style": 3, "label": "Send", "custom_id": "ce:send"},
-            {"type": 2, "style": 2, "label": "Preview", "custom_id": "ce:preview"},
             {"type": 2, "style": 4, "label": "Back", "custom_id": "ce:back"},
+        ]},
+    ]}
+
+def build_container_panel(state):
+    parts = state.get("container_parts", [])
+    lines = []
+    for i, p in enumerate(parts):
+        t = p.get("_type", "?")
+        preview = p.get("_preview", "")
+        lines.append(f"{i+1}. [{t}] {preview}")
+    comp_list = "\n".join(lines) if lines else "─ empty"
+
+    status = (
+        "## Container Builder\n"
+        "-# ╰─ Add raw components to your container.\n\n"
+        f"```\n{comp_list}\n```"
+    )
+
+    return {"flags": COMPONENTS_V2_FLAG | 64, "components": [
+        {"type": 17, "accent_color": state["color"], "components": [
+            {"type": 10, "content": status},
+            {"type": 14, "divider": True, "spacing": 1},
+            {"type": 10, "content": "-# ╰─ Celestials Dragons  ·  Container Builder"},
+        ]},
+        {"type": 1, "components": [
+            {"type": 2, "style": 1, "label": "Add Text", "custom_id": "ce:ct_text"},
+            {"type": 2, "style": 1, "label": "Add Image", "custom_id": "ce:ct_image"},
+            {"type": 2, "style": 2, "label": "Add Separator", "custom_id": "ce:ct_sep"},
+        ]},
+        {"type": 1, "components": [
+            {"type": 2, "style": 1, "label": "Add Button", "custom_id": "ce:ct_btn"},
+            {"type": 2, "style": 4, "label": "Clear All", "custom_id": "ce:ct_clear"},
+            {"type": 2, "style": 2, "label": "Back", "custom_id": "ce:ct_back"},
         ]},
     ]}
 
@@ -523,7 +599,6 @@ def build_final_embed(state):
             if "components" in msg: return {"flags": COMPONENTS_V2_FLAG, "components": msg["components"]}
         return None
 
-    if not state.get("title") and not state.get("description"): return None
     inner = []
     if state.get("image_url"): inner.append({"type": 12, "items": [{"media": {"url": state["image_url"]}}]})
     txt = ""
@@ -534,15 +609,33 @@ def build_final_embed(state):
             inner.append({"type": 9, "components": [{"type": 10, "content": txt}], "accessory": {"type": 11, "media": {"url": state["thumbnail_url"]}}})
         else:
             inner.append({"type": 10, "content": txt})
+
+    for part in state.get("container_parts", []):
+        pt = part.get("_type")
+        if pt == "text":
+            inner.append({"type": 10, "content": part.get("content", "")})
+        elif pt == "image":
+            inner.append({"type": 12, "items": [{"media": {"url": part.get("url", "")}}]})
+        elif pt == "separator":
+            inner.append({"type": 14, "divider": True, "spacing": 1})
+        elif pt == "button":
+            btn = {"type": 2, "style": int(part.get("style", 5)), "label": part.get("label", "Button")}
+            if part.get("url"): btn["url"] = part["url"]
+            else: btn["custom_id"] = f"ce_custom_{uuid.uuid4().hex[:8]}"
+            if part.get("emoji_id"):
+                btn["emoji"] = {"id": part["emoji_id"], "name": part.get("emoji_name", "emoji")}
+            inner.append({"type": 1, "components": [btn]})
+
     if state.get("footer_text"):
         inner.append({"type": 14, "divider": True, "spacing": 1})
         inner.append({"type": 10, "content": f"-# {state['footer_text']}"})
+
     if not inner: return None
     return {"flags": COMPONENTS_V2_FLAG, "components": [{"type": 17, "accent_color": state["color"], "components": inner}]}
 
 async def _ce_text_submit(interaction):
     uid = interaction.user.id; state = embed_builders.get(uid)
-    if not state: await ia_respond(interaction, {"content": "❌ Session expired.", "flags": 64}); return
+    if not state: await ia_respond(interaction, {"content": "─ Session expired.", "flags": 64}); return
     for row in (interaction.data or {}).get("components", []):
         for c in row.get("components", []):
             cid = c.get("custom_id", ""); val = (c.get("value") or "").strip() or None
@@ -553,7 +646,7 @@ async def _ce_text_submit(interaction):
 
 async def _ce_image_submit(interaction):
     uid = interaction.user.id; state = embed_builders.get(uid)
-    if not state: await ia_respond(interaction, {"content": "❌ Session expired.", "flags": 64}); return
+    if not state: await ia_respond(interaction, {"content": "─ Session expired.", "flags": 64}); return
     for row in (interaction.data or {}).get("components", []):
         for c in row.get("components", []):
             cid = c.get("custom_id", ""); val = (c.get("value") or "").strip() or None
@@ -563,23 +656,72 @@ async def _ce_image_submit(interaction):
 
 async def _ce_json_submit(interaction):
     uid = interaction.user.id; state = embed_builders.get(uid)
-    if not state: await ia_respond(interaction, {"content": "❌ Session expired.", "flags": 64}); return
+    if not state: await ia_respond(interaction, {"content": "─ Session expired.", "flags": 64}); return
     raw_text = ""
     for row in (interaction.data or {}).get("components", []):
         for c in row.get("components", []):
             if c.get("custom_id") == "ce_f_json": raw_text = (c.get("value") or "").strip()
-    if not raw_text: await ia_respond(interaction, {"content": "❌ No JSON provided.", "flags": 64}); return
+    if not raw_text: await ia_respond(interaction, {"content": "─ No JSON provided.", "flags": 64}); return
     try:
         data = json.loads(raw_text)
         state["raw_json"] = data; state["json_mode"] = True
         await ia_update(interaction, build_embed_builder(state))
     except json.JSONDecodeError:
-        await ia_respond(interaction, {"content": "❌ Invalid JSON. Copy it correctly from discohook.app.", "flags": 64})
+        await ia_respond(interaction, {"content": "─ Invalid JSON. Copy it correctly from discohook.app.", "flags": 64})
 
-class StaffPanelModal(discord.ui.Modal, title="◈ Celestials Dragons  ╱  Staff Panel"):
+async def _ce_profile_submit(interaction):
+    uid = interaction.user.id; state = embed_builders.get(uid)
+    if not state: await ia_respond(interaction, {"content": "─ Session expired.", "flags": 64}); return
+    for row in (interaction.data or {}).get("components", []):
+        for c in row.get("components", []):
+            cid = c.get("custom_id", ""); val = (c.get("value") or "").strip() or None
+            if cid == "ce_f_wh_name": state["webhook_name"] = val
+            elif cid == "ce_f_wh_avatar": state["webhook_avatar"] = val
+    await ia_update(interaction, build_embed_builder(state))
+
+async def _ce_ct_text_submit(interaction):
+    uid = interaction.user.id; state = embed_builders.get(uid)
+    if not state: await ia_respond(interaction, {"content": "─ Session expired.", "flags": 64}); return
+    for row in (interaction.data or {}).get("components", []):
+        for c in row.get("components", []):
+            if c.get("custom_id") == "ce_f_ct_text":
+                val = (c.get("value") or "").strip()
+                if val:
+                    state.setdefault("container_parts", []).append({"_type": "text", "_preview": val[:30], "content": val})
+    await ia_update(interaction, build_container_panel(state))
+
+async def _ce_ct_image_submit(interaction):
+    uid = interaction.user.id; state = embed_builders.get(uid)
+    if not state: await ia_respond(interaction, {"content": "─ Session expired.", "flags": 64}); return
+    for row in (interaction.data or {}).get("components", []):
+        for c in row.get("components", []):
+            if c.get("custom_id") == "ce_f_ct_image":
+                val = (c.get("value") or "").strip()
+                if val:
+                    state.setdefault("container_parts", []).append({"_type": "image", "_preview": "img", "url": val})
+    await ia_update(interaction, build_container_panel(state))
+
+async def _ce_ct_btn_submit(interaction):
+    uid = interaction.user.id; state = embed_builders.get(uid)
+    if not state: await ia_respond(interaction, {"content": "─ Session expired.", "flags": 64}); return
+    label = ""; url = ""; emoji_id = ""
+    for row in (interaction.data or {}).get("components", []):
+        for c in row.get("components", []):
+            cid = c.get("custom_id", ""); val = (c.get("value") or "").strip()
+            if cid == "ce_f_ct_btn_label": label = val
+            elif cid == "ce_f_ct_btn_url": url = val
+            elif cid == "ce_f_ct_btn_emoji": emoji_id = val
+    if not label: await ia_respond(interaction, {"content": "─ Button needs a label.", "flags": 64}); return
+    btn = {"_type": "button", "_preview": label[:20], "label": label, "style": 5 if url else 2}
+    if url: btn["url"] = url
+    if emoji_id: btn["emoji_id"] = emoji_id; btn["emoji_name"] = "emoji"
+    state.setdefault("container_parts", []).append(btn)
+    await ia_update(interaction, build_container_panel(state))
+
+class StaffPanelModal(discord.ui.Modal, title="Celestials Dragons  ╱  Staff Panel"):
     keyword = discord.ui.TextInput(
         label="Section",
-        placeholder="settings · tier · mods · poll · embeds · create_embed ...",
+        placeholder="create_embed",
         min_length=1,
         max_length=30,
         required=True,
@@ -587,7 +729,7 @@ class StaffPanelModal(discord.ui.Modal, title="◈ Celestials Dragons  ╱  Staf
 
     async def on_submit(self, interaction: discord.Interaction):
         if not has_perm(interaction.user):
-            await interaction.response.send_message("❌ No permission.", ephemeral=True)
+            await interaction.response.send_message("─ No permission.", ephemeral=True)
             return
 
         key = self.keyword.value.strip().lower()
@@ -596,49 +738,24 @@ class StaffPanelModal(discord.ui.Modal, title="◈ Celestials Dragons  ╱  Staf
 
         if section is None:
             await interaction.response.send_message(
-                f"❌ Unknown section `{key}`.\n\nAvailable:\n```\nsettings · tier · mods · poll · activity\nembeds · create_embed · rules · punishments · overview\n```",
+                f"─ Unknown section `{key}`.\n\nAvailable:\n```\ncreate_embed\n```\n-# ╰─ Other sections coming soon.",
                 ephemeral=True
             )
             return
 
+        if section == "placeholder":
+            msgs = {"en": "This section is coming soon.", "es": "Esta sección estará disponible próximamente.", "pt": "Esta seção estará disponível em breve."}
+            await interaction.response.send_message(f"─ **Placeholder**\n{msgs[lang]}", ephemeral=True)
+            return
+
         if section == "main":
             payload = build_main_panel(lang)
-        elif section == "settings":
-            payload = build_settings(lang)
-        elif section in ("tier", "mods", "poll", "activity"):
-            payload = build_cmd_detail(section, lang)
-        elif section == "embeds":
-            payload = build_embeds_panel(lang, interaction.user.id)
         elif section == "create_embed":
             if interaction.user.id not in EMBED_ALLOWED:
-                await interaction.response.send_message("🔒 Only Sid and Space can use this.", ephemeral=True)
+                await interaction.response.send_message("─ Only Sid and Space can use this.", ephemeral=True)
                 return
             embed_builders[interaction.user.id] = new_embed_state()
             await ia_respond(interaction, build_embed_builder(embed_builders[interaction.user.id]))
-            return
-        elif section == "launch_rules":
-            if interaction.user.id not in EMBED_ALLOWED:
-                await interaction.response.send_message("🔒 Only Sid and Space can launch embeds.", ephemeral=True)
-                return
-            await interaction.response.defer(ephemeral=True)
-            await api_post(CHANNEL_RULES, build_rules_embed())
-            await interaction.followup.send("✅ Rules embed launched.", ephemeral=True)
-            return
-        elif section == "launch_pun":
-            if interaction.user.id not in EMBED_ALLOWED:
-                await interaction.response.send_message("🔒 Only Sid and Space can launch embeds.", ephemeral=True)
-                return
-            await interaction.response.defer(ephemeral=True)
-            await api_post(CHANNEL_PUNISHMENTS, build_pun_accept())
-            await interaction.followup.send("✅ Punishments embed launched.", ephemeral=True)
-            return
-        elif section == "launch_ov":
-            if interaction.user.id not in EMBED_ALLOWED:
-                await interaction.response.send_message("🔒 Only Sid and Space can launch embeds.", ephemeral=True)
-                return
-            await interaction.response.defer(ephemeral=True)
-            await api_post(CHANNEL_OVERVIEW, build_overview_embed())
-            await interaction.followup.send("✅ Overview embed launched.", ephemeral=True)
             return
         else:
             payload = build_main_panel(lang)
@@ -653,7 +770,7 @@ class StaffPanelModal(discord.ui.Modal, title="◈ Celestials Dragons  ╱  Staf
 MODS_DATA = {
     "tier":       {"kw": ["tier","phase","fase","asignar","assign","tryout"], "en": "**`>tier`:** `>tier <phase 0-5|app> <low|mid|high> <weak|stable|strong> [@user] <sp|mi|da|la> [note: text]`\nExample: `>tier 1 high stable @user sp`\nRequires **TRYOUTER** role.", "es": "**`>tier`:** `>tier <phase 0-5|app> <low|mid|high> <weak|stable|strong> [@user] <sp|mi|da|la> [note: texto]`\nEjemplo: `>tier 1 high stable @user sp`\nRequiere rol **TRYOUTER**.", "pt": "**`>tier`:** `>tier <phase 0-5|app> <low|mid|high> <weak|stable|strong> [@user] <sp|mi|da|la> [note: texto]`\nExemplo: `>tier 1 high stable @user sp`\nRequer **TRYOUTER**."},
     "poll":       {"kw": ["poll","encuesta","enquete","votacion"], "en": "**`>poll`:** `>poll <question> | <opt1> | <opt2> vote: N` or `time: N unit`\nExample: `>poll Best region? | SAE | SAW vote: 10`\nRequires **PollsEvent**. Polls channel only.", "es": "**`>poll`:** `>poll <pregunta> | <op1> | <op2> vote: N` o `time: N unidad`\nEjemplo: `>poll Mejor región? | SAE | SAW vote: 10`\nRequiere **PollsEvent**. Solo canal de polls.", "pt": "**`>poll`:** `>poll <pergunta> | <op1> | <op2> vote: N` ou `time: N unidade`\nExemplo: `>poll Melhor região? | SAE | SAW vote: 10`\nRequer **PollsEvent**. Apenas canal de polls."},
-    "activity":   {"kw": ["activity","actividad","atividade","check","streak"], "en": "**`?activity check`:** `?activity check <message> @everyone`\nMembers react ✅ to increase streak. Missing a check resets to 0.\nOnly **bot owner**.", "es": "**`?activity check`:** `?activity check <mensaje> @everyone`\nLos miembros reaccionan ✅ para subir streak. Saltarse uno lo resetea a 0.\nSolo el **owner del bot**.", "pt": "**`?activity check`:** `?activity check <mensagem> @everyone`\nMembros reagem ✅ para subir streak. Perder um check reseta para 0.\nApenas o **dono do bot**."},
+    "activity":   {"kw": ["activity","actividad","atividade","check","streak"], "en": "**`?activity check`:** `?activity check <message> @everyone`\nMembers react to increase streak. Missing a check resets to 0.\nOnly **bot owner**.", "es": "**`?activity check`:** `?activity check <mensaje> @everyone`\nLos miembros reaccionan para subir streak. Saltarse uno lo resetea a 0.\nSolo el **owner del bot**.", "pt": "**`?activity check`:** `?activity check <mensagem> @everyone`\nMembros reagem para subir streak. Perder um check reseta para 0.\nApenas o **dono do bot**."},
     "staffpanel": {"kw": ["staffpanel","panel","staff panel"], "en": "**`/staffpanel`:** Opens the staff panel (modal). Type a keyword to navigate sections.\nAllowed: Sid, Space, and the 2 extra staff IDs.", "es": "**`/staffpanel`:** Abre el panel de staff (modal). Escribí una palabra clave para navegar.\nPermitidos: Sid, Space y los 2 IDs de staff extra.", "pt": "**`/staffpanel`:** Abre o painel de staff (modal). Digite uma palavra-chave para navegar.\nPermitidos: Sid, Space e os 2 IDs extras de staff."},
 }
 
@@ -702,15 +819,15 @@ def _tr(ca):
     return f"{h}h {m}m {s}s" if h else (f"{m}m {s}s" if m else f"{s}s")
 
 def build_poll_comps(state,final=False):
-    inner=[{"type":10,"content":f"### ▸ {state.question}"},{"type":14,"spacing":1}]
+    inner=[{"type":10,"content":f"### {state.question}"},{"type":14,"spacing":1}]
     for i,opt in enumerate(state.options):
         cnt=len(state.votes[i])
-        inner.append({"type":9,"components":[{"type":10,"content":f"{opt} — {cnt} vote{'s' if cnt!=1 else ''}"}],"accessory":{"type":2,"style":2,"label":f"{opt} ({cnt})","custom_id":f"poll:{state.poll_id}:vote:{i}","disabled":final}})
+        inner.append({"type":9,"components":[{"type":10,"content":f"{opt} ─ {cnt} vote{'s' if cnt!=1 else ''}"}],"accessory":{"type":2,"style":2,"label":f"{opt} ({cnt})","custom_id":f"poll:{state.poll_id}:vote:{i}","disabled":final}})
     inner.append({"type":14,"spacing":1})
     total=sum(len(v) for v in state.votes.values())
-    if final: inner.append({"type":10,"content":f"▸ Poll closed | Winner: {state.winner_text()}"})
-    elif state.vote_goal: inner.append({"type":10,"content":f"▸ Vote goal: {total}/{state.vote_goal}"})
-    elif state.close_at: inner.append({"type":10,"content":f"▸ Time remaining: {_tr(state.close_at)}"})
+    if final: inner.append({"type":10,"content":f"─ Poll closed | Winner: {state.winner_text()}"})
+    elif state.vote_goal: inner.append({"type":10,"content":f"─ Vote goal: {total}/{state.vote_goal}"})
+    elif state.close_at: inner.append({"type":10,"content":f"─ Time remaining: {_tr(state.close_at)}"})
     inner.append({"type":10,"content":f"||<@&{POLL_PING_ROLE_ID}>||"})
     return [{"type":17,"accent_color":state.accent_color,"components":inner},{"type":1,"components":[{"type":2,"style":2,"label":"Close Poll","custom_id":f"poll:{state.poll_id}:close","disabled":final}]}]
 
@@ -788,7 +905,7 @@ async def assign_streak_role(member,streak):
     except: pass
 
 def build_activity_container(cid):
-    return [{"type":17,"components":[{"type":10,"content":"Tap here ✅"}]},{"type":1,"components":[{"type":2,"style":2,"label":"Users","emoji":{"name":"emoji_49","id":"1491920857134530783"},"custom_id":"activity:users"},{"type":2,"style":2,"label":"Streak","emoji":{"name":"emoji_50","id":"1491941471249764453"},"custom_id":"activity:streak"}]}]
+    return [{"type":17,"components":[{"type":10,"content":"Tap here"}]},{"type":1,"components":[{"type":2,"style":2,"label":"Users","emoji":{"name":"emoji_49","id":"1491920857134530783"},"custom_id":"activity:users"},{"type":2,"style":2,"label":"Streak","emoji":{"name":"emoji_50","id":"1491941471249764453"},"custom_id":"activity:streak"}]}]
 
 # ─────────────────────────────────────────────
 #  A S K
@@ -813,7 +930,7 @@ async def handle_ask(message):
         except Exception as e:
             if getattr(e,"status_code",None)==429: await asyncio.sleep(1)
             continue
-    if not answer: await status.edit(content="⚠️ Temporarily overloaded."); hist.pop(); return
+    if not answer: await status.edit(content="Temporarily overloaded."); hist.pop(); return
     hist.append({"role":"assistant","content":answer})
     if len(answer)>2000:
         await status.delete()
@@ -907,32 +1024,32 @@ class LinkView(discord.ui.View):
 @client.tree.command(name="staffpanel", description="Open the Celestials Dragons staff control panel.")
 async def slash_staffpanel(interaction: discord.Interaction):
     if not has_perm(interaction.user):
-        await interaction.response.send_message("❌ No permission.", ephemeral=True); return
+        await interaction.response.send_message("─ No permission.", ephemeral=True); return
     await interaction.response.send_modal(StaffPanelModal())
 
 @client.tree.command(name="setuppunishments", description="Send the punishments panel to its channel.")
 async def slash_setuppunishments(interaction: discord.Interaction):
     if not has_perm(interaction.user):
-        await interaction.response.send_message("❌ No permission.", ephemeral=True); return
+        await interaction.response.send_message("─ No permission.", ephemeral=True); return
     await interaction.response.defer(ephemeral=True)
     await api_post(CHANNEL_PUNISHMENTS, build_pun_accept())
-    await interaction.followup.send("✅ Punishments panel sent.", ephemeral=True)
+    await interaction.followup.send("Punishments panel sent.", ephemeral=True)
 
 @client.tree.command(name="setuprules", description="Send the rules panel to its channel.")
 async def slash_setuprules(interaction: discord.Interaction):
     if not has_perm(interaction.user):
-        await interaction.response.send_message("❌ No permission.", ephemeral=True); return
+        await interaction.response.send_message("─ No permission.", ephemeral=True); return
     await interaction.response.defer(ephemeral=True)
     await api_post(CHANNEL_RULES, build_rules_embed())
-    await interaction.followup.send("✅ Rules panel sent.", ephemeral=True)
+    await interaction.followup.send("Rules panel sent.", ephemeral=True)
 
 @client.tree.command(name="setupoverview", description="Send the overview panel to its channel.")
 async def slash_setupoverview(interaction: discord.Interaction):
     if not has_perm(interaction.user):
-        await interaction.response.send_message("❌ No permission.", ephemeral=True); return
+        await interaction.response.send_message("─ No permission.", ephemeral=True); return
     await interaction.response.defer(ephemeral=True)
     await api_post(CHANNEL_OVERVIEW, build_overview_embed())
-    await interaction.followup.send("✅ Overview panel sent.", ephemeral=True)
+    await interaction.followup.send("Overview panel sent.", ephemeral=True)
 
 # ─────────────────────────────────────────────
 #  B O T   E V E N T S
@@ -970,12 +1087,15 @@ async def on_message(message: discord.Message):
 async def on_interaction(interaction: discord.Interaction):
     if interaction.type == discord.InteractionType.application_command: return
 
-    # Handle embed builder modal submits
     if interaction.type == discord.InteractionType.modal_submit:
         cid = (interaction.data or {}).get("custom_id", "")
         if cid == "ce_text_modal": await _ce_text_submit(interaction)
         elif cid == "ce_image_modal": await _ce_image_submit(interaction)
         elif cid == "ce_json_modal": await _ce_json_submit(interaction)
+        elif cid == "ce_profile_modal": await _ce_profile_submit(interaction)
+        elif cid == "ce_ct_text_modal": await _ce_ct_text_submit(interaction)
+        elif cid == "ce_ct_image_modal": await _ce_ct_image_submit(interaction)
+        elif cid == "ce_ct_btn_modal": await _ce_ct_btn_submit(interaction)
         return
 
     if interaction.type != discord.InteractionType.component: return
@@ -992,14 +1112,14 @@ async def on_interaction(interaction: discord.Interaction):
         if action in ("tier","mods","poll","activity"): await ia_update(interaction, build_cmd_detail(action,lang)); return
         if action == "embeds": await ia_update(interaction, build_embeds_panel(lang,interaction.user.id)); return
         if action == "launch_rules":
-            if interaction.user.id not in EMBED_ALLOWED: await ia_respond(interaction,{"content":"🔒 No permission.","flags":64}); return
-            await ia_defer(interaction); await api_post(CHANNEL_RULES,build_rules_embed()); await ia_followup(interaction,"✅ Rules launched."); return
+            if interaction.user.id not in EMBED_ALLOWED: await ia_respond(interaction,{"content":"─ No permission.","flags":64}); return
+            await ia_defer(interaction); await api_post(CHANNEL_RULES,build_rules_embed()); await ia_followup(interaction,"Rules launched."); return
         if action == "launch_pun":
-            if interaction.user.id not in EMBED_ALLOWED: await ia_respond(interaction,{"content":"🔒 No permission.","flags":64}); return
-            await ia_defer(interaction); await api_post(CHANNEL_PUNISHMENTS,build_pun_accept()); await ia_followup(interaction,"✅ Punishments launched."); return
+            if interaction.user.id not in EMBED_ALLOWED: await ia_respond(interaction,{"content":"─ No permission.","flags":64}); return
+            await ia_defer(interaction); await api_post(CHANNEL_PUNISHMENTS,build_pun_accept()); await ia_followup(interaction,"Punishments launched."); return
         if action == "launch_ov":
-            if interaction.user.id not in EMBED_ALLOWED: await ia_respond(interaction,{"content":"🔒 No permission.","flags":64}); return
-            await ia_defer(interaction); await api_post(CHANNEL_OVERVIEW,build_overview_embed()); await ia_followup(interaction,"✅ Overview launched."); return
+            if interaction.user.id not in EMBED_ALLOWED: await ia_respond(interaction,{"content":"─ No permission.","flags":64}); return
+            await ia_defer(interaction); await api_post(CHANNEL_OVERVIEW,build_overview_embed()); await ia_followup(interaction,"Overview launched."); return
         return
 
     # Embed builder
@@ -1007,10 +1127,10 @@ async def on_interaction(interaction: discord.Interaction):
         action = cid.split(":")[1] if len(cid.split(":")) > 1 else ""
         uid = interaction.user.id
         if uid not in EMBED_ALLOWED:
-            await ia_respond(interaction, {"content": "🔒 No permission.", "flags": 64}); return
+            await ia_respond(interaction, {"content": "─ No permission.", "flags": 64}); return
         state = embed_builders.get(uid)
         if not state and action not in ("back",):
-            await ia_respond(interaction, {"content": "❌ Session expired. Use `/staffpanel` → `create_embed` again.", "flags": 64}); return
+            await ia_respond(interaction, {"content": "─ Session expired. Use `/staffpanel` then type `create_embed`.", "flags": 64}); return
 
         if action == "color":
             val = (interaction.data or {}).get("values", ["5865F2"])[0]
@@ -1027,44 +1147,87 @@ async def on_interaction(interaction: discord.Interaction):
             comps = [{"type": 1, "components": [{"type": 4, "custom_id": "ce_f_title", "label": "Title", "style": 1, "max_length": 256, "required": False, "value": state.get("title") or "", "placeholder": "Embed title"}]},
                      {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_desc", "label": "Description", "style": 2, "max_length": 4000, "required": False, "value": state.get("description") or "", "placeholder": "Embed description (supports markdown)"}]},
                      {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_footer", "label": "Footer", "style": 1, "max_length": 200, "required": False, "value": state.get("footer_text") or "", "placeholder": "Footer text"}]}]
-            await ia_modal(interaction, "ce_text_modal", "✏️ Edit Embed Text", comps); return
+            await ia_modal(interaction, "ce_text_modal", "Edit Embed Text", comps); return
 
         if action == "image":
             comps = [{"type": 1, "components": [{"type": 4, "custom_id": "ce_f_image", "label": "Image URL", "style": 1, "max_length": 500, "required": False, "value": state.get("image_url") or "", "placeholder": "https://example.com/image.png"}]},
                      {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_thumb", "label": "Thumbnail URL", "style": 1, "max_length": 500, "required": False, "value": state.get("thumbnail_url") or "", "placeholder": "https://example.com/thumb.png"}]}]
-            await ia_modal(interaction, "ce_image_modal", "🖼️ Add Images", comps); return
+            await ia_modal(interaction, "ce_image_modal", "Add Images", comps); return
 
         if action == "json":
             comps = [{"type": 1, "components": [{"type": 4, "custom_id": "ce_f_json", "label": "Discohook JSON", "style": 2, "max_length": 4000, "required": True, "placeholder": "Paste your discohook.app JSON here..."}]}]
-            await ia_modal(interaction, "ce_json_modal", "📋 Paste Discohook JSON", comps); return
+            await ia_modal(interaction, "ce_json_modal", "Paste Discohook JSON", comps); return
+
+        if action == "container":
+            await ia_update(interaction, build_container_panel(state)); return
+
+        if action == "profile":
+            comps = [
+                {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_wh_name", "label": "Display Name", "style": 1, "max_length": 80, "required": False, "value": state.get("webhook_name") or "", "placeholder": "Custom name (empty = bot default)"}]},
+                {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_wh_avatar", "label": "Avatar URL", "style": 1, "max_length": 500, "required": False, "value": state.get("webhook_avatar") or "", "placeholder": "https://example.com/avatar.png"}]},
+            ]
+            await ia_modal(interaction, "ce_profile_modal", "Profile Settings", comps); return
 
         if action == "preview":
             payload = build_final_embed(state)
             if not payload:
-                await ia_respond(interaction, {"content": "❌ Set at least a title/description or paste JSON first.", "flags": 64}); return
+                await ia_respond(interaction, {"content": "─ Set at least a title/description, paste JSON, or add container parts.", "flags": 64}); return
             preview = {**payload, "flags": payload.get("flags", 0) | 64}
             await ia_respond(interaction, preview); return
 
         if action == "send":
             if not state.get("channel_id"):
-                await ia_respond(interaction, {"content": "❌ Select a channel first.", "flags": 64}); return
+                await ia_respond(interaction, {"content": "─ Select a channel first.", "flags": 64}); return
             payload = build_final_embed(state)
             if not payload:
-                await ia_respond(interaction, {"content": "❌ Add content first (title/description or JSON).", "flags": 64}); return
+                await ia_respond(interaction, {"content": "─ Add content first (title/description, JSON, or container parts).", "flags": 64}); return
             await ia_defer(interaction)
-            result = await api_post(state["channel_id"], payload)
+            wh_name = state.get("webhook_name")
+            wh_avatar = state.get("webhook_avatar")
+            if wh_name or wh_avatar:
+                result = await webhook_send(state["channel_id"], payload, username=wh_name, avatar_url=wh_avatar)
+            else:
+                result = await api_post(state["channel_id"], payload)
             if result.get("id"):
                 ch = state["channel_id"]; embed_builders.pop(uid, None)
                 await ia_edit(interaction, {"flags": COMPONENTS_V2_FLAG | 64, "components": [{"type": 17, "components": [
-                    {"type": 10, "content": f"## ✅ Embed Sent\n-# ╰─ Sent to <#{ch}>  ·  Celestials Dragons"},
+                    {"type": 10, "content": f"## Embed Sent\n-# ╰─ Sent to <#{ch}>  ·  Celestials Dragons"},
                 ]}]})
             else:
-                await ia_followup(interaction, f"❌ Failed. Check bot permissions.\n```{str(result)[:200]}```")
+                await ia_followup(interaction, f"─ Failed. Check bot permissions.\n```{str(result)[:200]}```")
             return
 
         if action == "back":
             embed_builders.pop(uid, None)
             await ia_update(interaction, build_main_panel("en")); return
+
+        # Container sub-actions
+        if action == "ct_text":
+            comps = [{"type": 1, "components": [{"type": 4, "custom_id": "ce_f_ct_text", "label": "Text Content", "style": 2, "max_length": 4000, "required": True, "placeholder": "Text content (supports markdown)"}]}]
+            await ia_modal(interaction, "ce_ct_text_modal", "Add Text Component", comps); return
+
+        if action == "ct_image":
+            comps = [{"type": 1, "components": [{"type": 4, "custom_id": "ce_f_ct_image", "label": "Image URL", "style": 1, "max_length": 500, "required": True, "placeholder": "https://example.com/image.png"}]}]
+            await ia_modal(interaction, "ce_ct_image_modal", "Add Image Component", comps); return
+
+        if action == "ct_sep":
+            state.setdefault("container_parts", []).append({"_type": "separator", "_preview": "───"})
+            await ia_update(interaction, build_container_panel(state)); return
+
+        if action == "ct_btn":
+            comps = [
+                {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_ct_btn_label", "label": "Button Label", "style": 1, "max_length": 80, "required": True, "placeholder": "Click me!"}]},
+                {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_ct_btn_url", "label": "Button URL (optional)", "style": 1, "max_length": 500, "required": False, "placeholder": "https://example.com"}]},
+                {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_ct_btn_emoji", "label": "Custom Emoji ID (optional)", "style": 1, "max_length": 30, "required": False, "placeholder": "1234567890"}]},
+            ]
+            await ia_modal(interaction, "ce_ct_btn_modal", "Add Button Component", comps); return
+
+        if action == "ct_clear":
+            state["container_parts"] = []
+            await ia_update(interaction, build_container_panel(state)); return
+
+        if action == "ct_back":
+            await ia_update(interaction, build_embed_builder(state)); return
 
         return
 
@@ -1077,7 +1240,7 @@ async def on_interaction(interaction: discord.Interaction):
         url2=f"{DISCORD_API_BASE}/webhooks/{APPLICATION_ID}/{interaction.token}/messages/@original"
         async with aiohttp.ClientSession() as s: await s.patch(url2,json=build_pun_lang() if has_role else build_pun_accept(),headers={"Content-Type":"application/json"})
         url3=f"{DISCORD_API_BASE}/webhooks/{APPLICATION_ID}/{interaction.token}"
-        async with aiohttp.ClientSession() as s: await s.post(url3,json={"content":"◈ **Accepted**" if has_role else "▸ **Rejected** — No required role.","flags":64},headers={"Content-Type":"application/json"})
+        async with aiohttp.ClientSession() as s: await s.post(url3,json={"content":"Accepted" if has_role else "Rejected ─ No required role.","flags":64},headers={"Content-Type":"application/json"})
         return
     if cid == "punish_lang_select":
         lang=(interaction.data or {}).get("values",["en"])[0]; await ia_update(interaction,build_pun_content(lang)); return
@@ -1111,7 +1274,7 @@ async def on_interaction(interaction: discord.Interaction):
         if act=="users":
             state=next((s for s in active_checks.values() if s.check_id==current_check_id),None) if current_check_id else None
             rows=[{"type":10,"content":f"**{n}**"} for n in state.checkers.values()] if state and state.checkers else [{"type":10,"content":"*No one checked in yet.*"}]
-            await ia_respond(interaction,{"flags":EV2,"components":[{"type":17,"components":[{"type":10,"content":"### Activity Check — Users"},{"type":14},*rows]}]}); return
+            await ia_respond(interaction,{"flags":EV2,"components":[{"type":17,"components":[{"type":10,"content":"### Activity Check ─ Users"},{"type":14},*rows]}]}); return
         if act=="streak":
             data=load_streaks()
             lb=sorted([(int(uid),e.get("streak",0)) for uid,e in data.items() if int(uid) not in EXCLUDED_IDS and e.get("streak",0)>0],key=lambda x:x[1],reverse=True)[:5]
@@ -1119,7 +1282,7 @@ async def on_interaction(interaction: discord.Interaction):
             rows=[]
             for uid,cnt in lb:
                 m=guild.get_member(uid) if guild else None
-                rows.append({"type":10,"content":f"▸ **{m.display_name if m else uid}** — {cnt} streak{'s' if cnt!=1 else ''}"})
+                rows.append({"type":10,"content":f"─ **{m.display_name if m else uid}** ─ {cnt} streak{'s' if cnt!=1 else ''}"})
             if not rows: rows=[{"type":10,"content":"*No streak data yet.*"}]
             await ia_respond(interaction,{"flags":EV2,"components":[{"type":17,"components":[{"type":10,"content":"### Streak Top 5"},{"type":14},*rows]}]}); return
 
