@@ -33,7 +33,17 @@ CHANNEL_OVERVIEW    = 1497364673379700848
 
 STAFF_ALLOWED = {1162798183068467220, 1025178585104920656, 1497342710481420324, 1497342394499072080}
 EMBED_ALLOWED = {1162798183068467220, 1025178585104920656}
+BOT_OWNERS    = {1162798183068467220, 1025178585104920656}
 ALLOWED_ROLES = {1497009109101183107}
+
+# ─── Bad word filter ───
+BANNED_WORDS = [
+    "nigger", "nigga", "nigg4", "n1gger", "n1gga",
+    "faggot", "fag", "f4ggot",
+    "retard", "retarded",
+    "kys",
+]
+BANNED_PATTERN = re.compile(r'\b(' + '|'.join(re.escape(w) for w in BANNED_WORDS) + r')\b', re.IGNORECASE)
 
 TRYOUTER_ROLE_ID  = 1447060651003346995
 POLL_ROLE_ID      = 1490466480318582804
@@ -88,6 +98,9 @@ async def on_app_command_error(interaction, error):
 def has_perm(member):
     if member.guild_permissions.administrator: return True
     return any(r.id in ALLOWED_ROLES for r in member.roles) or member.id in STAFF_ALLOWED
+
+def is_bot_owner(user):
+    return user.id in BOT_OWNERS
 
 # ─────────────────────────────────────────────
 #  A P I   H E L P E R S
@@ -1003,11 +1016,15 @@ SYS = (
     "- Help staff members understand their tools and duties."
 )
 
-async def handle_ask(message):
-    q=message.content[len(">ask"):].strip()
-    if not q: await message.channel.send("Usage: `>ask <question>`"); return
+async def handle_ask(message, prefix=">help"):
+    q=message.content[len(prefix):].strip()
+    if not q: await message.channel.send(f"Usage: `{prefix} <question>`"); return
     uid=message.author.id; hist=conv_history[uid]
-    hist.append({"role":"user","content":q})
+    # Build user context so the AI knows who it's talking to
+    member = message.author
+    role_names = [r.name for r in member.roles if r.name != "@everyone"]
+    user_ctx = f"[User: {member.display_name} (ID: {uid}) | Roles: {', '.join(role_names) or 'None'}]"
+    hist.append({"role":"user","content":f"{user_ctx}\n{q}"})
     if len(hist)>MAX_HIST: hist=hist[-MAX_HIST:]; conv_history[uid]=hist
     status=await message.channel.send("Buscando…"); answer=None
     for model in MODELS:
@@ -1110,33 +1127,125 @@ class LinkView(discord.ui.View):
 
 @client.tree.command(name="staffpanel", description="Open the Awaken Reborns staff control panel.")
 async def slash_staffpanel(interaction: discord.Interaction):
-    if not has_perm(interaction.user):
-        await interaction.response.send_message("─ No permission.", ephemeral=True); return
+    if not is_bot_owner(interaction.user):
+        await interaction.response.send_message("─ Only Sid and Space can use this.", ephemeral=True); return
     await interaction.response.send_modal(StaffPanelModal())
 
 @client.tree.command(name="setuppunishments", description="Send the punishments panel to its channel.")
 async def slash_setuppunishments(interaction: discord.Interaction):
-    if not has_perm(interaction.user):
-        await interaction.response.send_message("─ No permission.", ephemeral=True); return
+    if not is_bot_owner(interaction.user):
+        await interaction.response.send_message("─ Only Sid and Space can use this.", ephemeral=True); return
     await interaction.response.defer(ephemeral=True)
     await api_post(CHANNEL_PUNISHMENTS, build_pun_accept())
     await interaction.followup.send("Punishments panel sent.", ephemeral=True)
 
 @client.tree.command(name="setuprules", description="Send the rules panel to its channel.")
 async def slash_setuprules(interaction: discord.Interaction):
-    if not has_perm(interaction.user):
-        await interaction.response.send_message("─ No permission.", ephemeral=True); return
+    if not is_bot_owner(interaction.user):
+        await interaction.response.send_message("─ Only Sid and Space can use this.", ephemeral=True); return
     await interaction.response.defer(ephemeral=True)
     await api_post(CHANNEL_RULES, build_rules_embed())
     await interaction.followup.send("Rules panel sent.", ephemeral=True)
 
 @client.tree.command(name="setupoverview", description="Send the overview panel to its channel.")
 async def slash_setupoverview(interaction: discord.Interaction):
-    if not has_perm(interaction.user):
-        await interaction.response.send_message("─ No permission.", ephemeral=True); return
+    if not is_bot_owner(interaction.user):
+        await interaction.response.send_message("─ Only Sid and Space can use this.", ephemeral=True); return
     await interaction.response.defer(ephemeral=True)
     await api_post(CHANNEL_OVERVIEW, build_overview_embed())
     await interaction.followup.send("Overview panel sent.", ephemeral=True)
+
+# ─────────────────────────────────────────────
+#  R O L E  /  C H A N N E L   M A N A G E M E N T
+# ─────────────────────────────────────────────
+
+async def handle_create_role(message):
+    args = message.content[len(">createrole"):].strip()
+    if not args:
+        await message.channel.send("Usage: `>createrole <name> [hex color]`\nExample: `>createrole VIP FF5733`"); return
+    parts = args.split()
+    name = parts[0]
+    color = discord.Color(int(parts[1], 16)) if len(parts) > 1 else discord.Color.default()
+    try:
+        role = await message.guild.create_role(name=name, color=color, reason=f"Created by {message.author}")
+        await message.channel.send(f"─ Role **{role.name}** created. {role.mention}")
+    except discord.Forbidden:
+        await message.channel.send("─ Missing permissions to create roles.")
+    except Exception as e:
+        await message.channel.send(f"─ Error: {e}")
+
+async def handle_delete_role(message):
+    args = message.content[len(">deleterole"):].strip()
+    if not args:
+        await message.channel.send("Usage: `>deleterole <role name or ID>`"); return
+    guild = message.guild
+    role = discord.utils.get(guild.roles, name=args) or guild.get_role(int(args)) if args.isdigit() else discord.utils.get(guild.roles, name=args)
+    if not role:
+        await message.channel.send(f"─ Role `{args}` not found."); return
+    try:
+        await role.delete(reason=f"Deleted by {message.author}")
+        await message.channel.send(f"─ Role **{args}** deleted.")
+    except discord.Forbidden:
+        await message.channel.send("─ Missing permissions to delete this role.")
+    except Exception as e:
+        await message.channel.send(f"─ Error: {e}")
+
+async def handle_create_channel(message):
+    args = message.content[len(">createchannel"):].strip()
+    if not args:
+        await message.channel.send("Usage: `>createchannel <name> [category ID]`\nExample: `>createchannel general-chat 123456789`"); return
+    parts = args.split()
+    name = parts[0]
+    category = None
+    if len(parts) > 1 and parts[1].isdigit():
+        category = message.guild.get_channel(int(parts[1]))
+    try:
+        ch = await message.guild.create_text_channel(name=name, category=category, reason=f"Created by {message.author}")
+        await message.channel.send(f"─ Channel {ch.mention} created.")
+    except discord.Forbidden:
+        await message.channel.send("─ Missing permissions to create channels.")
+    except Exception as e:
+        await message.channel.send(f"─ Error: {e}")
+
+async def handle_delete_channel(message):
+    args = message.content[len(">deletechannel"):].strip()
+    if not args:
+        await message.channel.send("Usage: `>deletechannel <channel ID>`"); return
+    if not args.isdigit():
+        await message.channel.send("─ Provide a channel ID (numbers only)."); return
+    ch = message.guild.get_channel(int(args))
+    if not ch:
+        await message.channel.send(f"─ Channel `{args}` not found."); return
+    try:
+        name = ch.name
+        await ch.delete(reason=f"Deleted by {message.author}")
+        await message.channel.send(f"─ Channel **{name}** deleted.")
+    except discord.Forbidden:
+        await message.channel.send("─ Missing permissions to delete this channel.")
+    except Exception as e:
+        await message.channel.send(f"─ Error: {e}")
+
+async def handle_add_banned_word(message):
+    word = message.content[len(">addword"):].strip().lower()
+    if not word:
+        await message.channel.send("Usage: `>addword <word>`"); return
+    if word in BANNED_WORDS:
+        await message.channel.send(f"─ `{word}` is already banned."); return
+    BANNED_WORDS.append(word)
+    global BANNED_PATTERN
+    BANNED_PATTERN = re.compile(r'\b(' + '|'.join(re.escape(w) for w in BANNED_WORDS) + r')\b', re.IGNORECASE)
+    await message.channel.send(f"─ Added `{word}` to banned words.")
+
+async def handle_remove_banned_word(message):
+    word = message.content[len(">removeword"):].strip().lower()
+    if not word:
+        await message.channel.send("Usage: `>removeword <word>`"); return
+    if word not in BANNED_WORDS:
+        await message.channel.send(f"─ `{word}` is not in the list."); return
+    BANNED_WORDS.remove(word)
+    global BANNED_PATTERN
+    BANNED_PATTERN = re.compile(r'\b(' + '|'.join(re.escape(w) for w in BANNED_WORDS) + r')\b', re.IGNORECASE) if BANNED_WORDS else re.compile(r'(?!)')
+    await message.channel.send(f"─ Removed `{word}` from banned words.")
 
 # ─────────────────────────────────────────────
 #  B O T   E V E N T S
@@ -1165,17 +1274,40 @@ async def on_ready():
     client.add_view(LinkView())
     load_activity()
     asyncio.create_task(self_ping())
+    await client.change_presence(activity=discord.Game(name="Beta · Awaken Reborns"), status=discord.Status.idle)
     print(f"[ONLINE] {client.user} — Owner: {BOT_OWNER_ID}")
 
 @client.event
 async def on_message(message: discord.Message):
     if message.author.bot: return
+
+    # ─── Bad word filter (applies to ALL users) ───
+    if message.guild and BANNED_PATTERN.search(message.content):
+        try:
+            await message.delete()
+        except discord.Forbidden:
+            pass
+        try:
+            await message.channel.send(
+                f"{message.author.mention} ─ Your message was removed for containing a prohibited word.",
+                delete_after=8
+            )
+        except:
+            pass
+        return
+
     c = message.content.strip()
+
+    # ─── Bot commands (restricted to BOT_OWNERS) ───
+    if c.startswith(">") or c.lower().startswith("?activity"):
+        if not is_bot_owner(message.author):
+            return
+
     if c.startswith(">mods"):
         q=c[len(">mods"):].strip()
         if not q: await message.channel.send("Usage: `>mods <question>`"); return
         await message.channel.send(get_mods_response(q)); return
-    if c.startswith(">ask"): await handle_ask(message); return
+    if c.startswith(">help"): await handle_ask(message, prefix=">help"); return
     if c.startswith(">tier"): await handle_tier(message); return
     if c.startswith(">poll"): await handle_poll(message); return
     if c.startswith(">info"):
@@ -1185,6 +1317,13 @@ async def on_message(message: discord.Message):
         rdata=await fetch_roblox(roblox_links[uid])
         await message.channel.send(embed=build_profile(message.author,rdata,roblox_links[uid])); return
     if c.lower().startswith("?activity"): await handle_activity(message); return
+    if c.startswith(">createrole"): await handle_create_role(message); return
+    if c.startswith(">createchannel"): await handle_create_channel(message); return
+    if c.startswith(">deleterole"): await handle_delete_role(message); return
+    if c.startswith(">deletechannel"): await handle_delete_channel(message); return
+    if c.startswith(">addword"): await handle_add_banned_word(message); return
+    if c.startswith(">removeword"): await handle_remove_banned_word(message); return
+    if c.startswith(">wordlist"): await message.channel.send(f"**Banned words:** {', '.join(BANNED_WORDS) if BANNED_WORDS else 'None'}"); return
 
 @client.event
 async def on_interaction(interaction: discord.Interaction):
