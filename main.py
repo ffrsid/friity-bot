@@ -616,77 +616,148 @@ COLOR_PRESETS = [
 embed_builders = {}
 
 def new_embed_state():
-    return {"title": None, "description": None, "color": 0x5865F2, "color_name": "Blurple",
-            "image_url": None, "thumbnail_url": None, "footer_text": None,
+    return {"title": None, "title_url": None, "description": None,
+            "color": 0x5865F2, "color_name": "Blurple",
+            "image_url": None, "thumbnail_url": None, "image_spoiler": False,
+            "footer_text": None, "footer_icon": None,
             "channel_id": None, "json_mode": False, "raw_json": None,
             "webhook_name": None, "webhook_avatar": None,
             "container_parts": [],
             "author_name": None, "author_icon": None, "author_url": None,
-            "fields": [], "timestamp": False}
+            "fields": [], "timestamp": False,
+            "message_content": None,
+            "embeds": [], "current_embed": 0,
+            "lang": "en"}
 
 def _trunc(s, n):
     if not s: return "─"
     return (s[:n] + "…") if len(s) > n else s
 
+_EB_LABELS = {
+    "en": {"title": "Create Custom Embed", "sub": "Build your embed step by step.",
+           "lbl_title": "Title", "lbl_desc": "Description", "lbl_author": "Author",
+           "lbl_color": "Color", "lbl_channel": "Channel", "lbl_image": "Image",
+           "lbl_thumb": "Thumbnail", "lbl_footer": "Footer", "lbl_footer_icon": "Footer Icon",
+           "lbl_ts": "Timestamp", "lbl_fields": "Fields", "lbl_mode": "Mode",
+           "lbl_comps": "Components", "lbl_profile": "Profile", "lbl_avatar": "Avatar",
+           "lbl_titleurl": "Title URL", "lbl_spoiler": "Spoiler", "lbl_msg": "Msg Content",
+           "lbl_embeds": "Embeds",
+           "btn_text": "Edit Text", "btn_images": "Images", "btn_author": "Author",
+           "btn_fields": "Fields", "btn_json": "Paste JSON", "btn_container": "Container",
+           "btn_profile": "Profile", "btn_timestamp": "Timestamp", "btn_preview": "Preview",
+           "btn_send": "Send", "btn_back": "Back", "btn_msg": "Msg Content",
+           "btn_add_embed": "+ Embed", "btn_del_embed": "- Embed",
+           "yes": "Yes", "no": "No", "footer_tag": "Embed Builder"},
+    "es": {"title": "Crear Embed Personalizado", "sub": "Armá tu embed paso a paso.",
+           "lbl_title": "Título", "lbl_desc": "Descripción", "lbl_author": "Autor",
+           "lbl_color": "Color", "lbl_channel": "Canal", "lbl_image": "Imagen",
+           "lbl_thumb": "Miniatura", "lbl_footer": "Footer", "lbl_footer_icon": "Ícono Footer",
+           "lbl_ts": "Timestamp", "lbl_fields": "Fields", "lbl_mode": "Modo",
+           "lbl_comps": "Componentes", "lbl_profile": "Perfil", "lbl_avatar": "Avatar",
+           "lbl_titleurl": "URL Título", "lbl_spoiler": "Spoiler", "lbl_msg": "Contenido Msg",
+           "lbl_embeds": "Embeds",
+           "btn_text": "Editar Texto", "btn_images": "Imágenes", "btn_author": "Autor",
+           "btn_fields": "Fields", "btn_json": "Pegar JSON", "btn_container": "Container",
+           "btn_profile": "Perfil", "btn_timestamp": "Timestamp", "btn_preview": "Vista Previa",
+           "btn_send": "Enviar", "btn_back": "Volver", "btn_msg": "Contenido Msg",
+           "btn_add_embed": "+ Embed", "btn_del_embed": "- Embed",
+           "yes": "Sí", "no": "No", "footer_tag": "Embed Builder"},
+    "pt": {"title": "Criar Embed Personalizado", "sub": "Monte seu embed passo a passo.",
+           "lbl_title": "Título", "lbl_desc": "Descrição", "lbl_author": "Autor",
+           "lbl_color": "Cor", "lbl_channel": "Canal", "lbl_image": "Imagem",
+           "lbl_thumb": "Miniatura", "lbl_footer": "Footer", "lbl_footer_icon": "Ícone Footer",
+           "lbl_ts": "Timestamp", "lbl_fields": "Fields", "lbl_mode": "Modo",
+           "lbl_comps": "Componentes", "lbl_profile": "Perfil", "lbl_avatar": "Avatar",
+           "lbl_titleurl": "URL Título", "lbl_spoiler": "Spoiler", "lbl_msg": "Conteúdo Msg",
+           "lbl_embeds": "Embeds",
+           "btn_text": "Editar Texto", "btn_images": "Imagens", "btn_author": "Autor",
+           "btn_fields": "Fields", "btn_json": "Colar JSON", "btn_container": "Container",
+           "btn_profile": "Perfil", "btn_timestamp": "Timestamp", "btn_preview": "Pré-visualizar",
+           "btn_send": "Enviar", "btn_back": "Voltar", "btn_msg": "Conteúdo Msg",
+           "btn_add_embed": "+ Embed", "btn_del_embed": "- Embed",
+           "yes": "Sim", "no": "Não", "footer_tag": "Embed Builder"},
+}
+
 def build_embed_builder(state):
+    lang = state.get("lang", "en")
+    L = _EB_LABELS.get(lang, _EB_LABELS["en"])
+    y = L["yes"]; n = L["no"]
+
     t = _trunc(state["title"], 40)
     d = _trunc(state["description"], 50)
     c = state["color_name"]
     ch = f"<#{state['channel_id']}>" if state["channel_id"] else "─"
-    img = "Yes" if state["image_url"] else "No"
-    thumb = "Yes" if state["thumbnail_url"] else "No"
+    img = y if state["image_url"] else n
+    thumb = y if state["thumbnail_url"] else n
     ft = _trunc(state["footer_text"], 30)
+    fi = y if state.get("footer_icon") else n
     mode = "JSON (discohook)" if state["json_mode"] else "Manual"
     parts = len(state.get("container_parts", []))
     wn = state.get("webhook_name") or "Default"
-    wa = "Yes" if state.get("webhook_avatar") else "No"
+    wa = y if state.get("webhook_avatar") else n
     au = _trunc(state.get("author_name"), 25)
     flds = len(state.get("fields", []))
-    ts = "Yes" if state.get("timestamp") else "No"
+    ts = y if state.get("timestamp") else n
+    turl = y if state.get("title_url") else n
+    spoiler = y if state.get("image_spoiler") else n
+    msg = y if state.get("message_content") else n
+    n_embeds = len(state.get("embeds", [])) + 1
+    cur = state.get("current_embed", 0) + 1
 
     status = (
-        "## Create Custom Embed\n"
-        "-# ╰─ Build your embed step by step.\n\n"
+        f"## {L['title']}\n"
+        f"-# ╰─ {L['sub']}\n\n"
         "```\n"
-        f"Title:       {t}\n"
-        f"Description: {d}\n"
-        f"Author:      {au}\n"
-        f"Color:       #{state['color']:06X} ({c})\n"
-        f"Channel:     {ch}\n"
-        f"Image:       {img}  ·  Thumbnail: {thumb}\n"
-        f"Footer:      {ft}  ·  Timestamp: {ts}\n"
-        f"Fields:      {flds}\n"
-        f"Mode:        {mode}\n"
-        f"Components:  {parts}\n"
-        f"Profile:     {wn}  ·  Avatar: {wa}\n"
+        f"{L['lbl_title']:12s} {t}\n"
+        f"{L['lbl_titleurl']:12s} {turl}\n"
+        f"{L['lbl_desc']:12s} {d}\n"
+        f"{L['lbl_author']:12s} {au}\n"
+        f"{L['lbl_color']:12s} #{state['color']:06X} ({c})\n"
+        f"{L['lbl_channel']:12s} {ch}\n"
+        f"{L['lbl_image']:12s} {img}  ·  {L['lbl_thumb']}: {thumb}  ·  {L['lbl_spoiler']}: {spoiler}\n"
+        f"{L['lbl_footer']:12s} {ft}  ·  {L['lbl_footer_icon']}: {fi}\n"
+        f"{L['lbl_ts']:12s} {ts}  ·  {L['lbl_fields']}: {flds}\n"
+        f"{L['lbl_msg']:12s} {msg}\n"
+        f"{L['lbl_mode']:12s} {mode}\n"
+        f"{L['lbl_comps']:12s} {parts}\n"
+        f"{L['lbl_profile']:12s} {wn}  ·  {L['lbl_avatar']}: {wa}\n"
+        f"{L['lbl_embeds']:12s} {cur}/{n_embeds}\n"
         "```"
     )
+
+    lang_opts = [
+        {"label": "English", "value": "en"}, {"label": "Español", "value": "es"}, {"label": "Português", "value": "pt"}
+    ]
 
     return {"flags": COMPONENTS_V2_FLAG | 64, "components": [
         {"type": 17, "accent_color": state["color"], "components": [
             {"type": 10, "content": status},
             {"type": 14, "divider": True, "spacing": 1},
-            {"type": 10, "content": "-# ╰─ Awaken Reborns  ·  Embed Builder"},
+            {"type": 10, "content": f"-# ╰─ Awaken Reborns  ·  {L['footer_tag']}"},
         ]},
         {"type": 1, "components": [{"type": 3, "custom_id": "ce:color", "placeholder": "Select Color", "options": COLOR_PRESETS}]},
         {"type": 1, "components": [{"type": 8, "custom_id": "ce:channel", "placeholder": "Select Channel", "channel_types": [0]}]},
         {"type": 1, "components": [
-            {"type": 2, "style": 1, "label": "Edit Text", "custom_id": "ce:text"},
-            {"type": 2, "style": 1, "label": "Images", "custom_id": "ce:image"},
-            {"type": 2, "style": 1, "label": "Author", "custom_id": "ce:author"},
-            {"type": 2, "style": 1, "label": "Fields", "custom_id": "ce:field"},
-            {"type": 2, "style": 2, "label": "Paste JSON", "custom_id": "ce:json"},
+            {"type": 2, "style": 1, "label": L["btn_text"], "custom_id": "ce:text"},
+            {"type": 2, "style": 1, "label": L["btn_images"], "custom_id": "ce:image"},
+            {"type": 2, "style": 1, "label": L["btn_author"], "custom_id": "ce:author"},
+            {"type": 2, "style": 1, "label": L["btn_fields"], "custom_id": "ce:field"},
+            {"type": 2, "style": 2, "label": L["btn_json"], "custom_id": "ce:json"},
         ]},
         {"type": 1, "components": [
-            {"type": 2, "style": 1, "label": "Container", "custom_id": "ce:container"},
-            {"type": 2, "style": 2, "label": "Profile", "custom_id": "ce:profile"},
-            {"type": 2, "style": 2, "label": "Timestamp", "custom_id": "ce:timestamp"},
-            {"type": 2, "style": 3, "label": "Preview", "custom_id": "ce:preview"},
+            {"type": 2, "style": 1, "label": L["btn_container"], "custom_id": "ce:container"},
+            {"type": 2, "style": 2, "label": L["btn_profile"], "custom_id": "ce:profile"},
+            {"type": 2, "style": 2, "label": L["btn_msg"], "custom_id": "ce:msgcontent"},
+            {"type": 2, "style": 2, "label": L["btn_timestamp"], "custom_id": "ce:timestamp"},
+            {"type": 2, "style": 3, "label": L["btn_preview"], "custom_id": "ce:preview"},
         ]},
         {"type": 1, "components": [
-            {"type": 2, "style": 3, "label": "Send", "custom_id": "ce:send"},
-            {"type": 2, "style": 4, "label": "Back", "custom_id": "ce:back"},
+            {"type": 2, "style": 3, "label": L["btn_send"], "custom_id": "ce:send"},
+            {"type": 2, "style": 2, "label": L["btn_add_embed"], "custom_id": "ce:add_embed"},
+            {"type": 2, "style": 2, "label": L["btn_del_embed"], "custom_id": "ce:del_embed", "disabled": n_embeds <= 1},
+            {"type": 2, "style": 4, "label": L["btn_back"], "custom_id": "ce:back"},
         ]},
+        {"type": 1, "components": [{"type": 3, "custom_id": "ce:lang", "placeholder": "Language / Idioma", "options": lang_opts}]},
     ]}
 
 def build_container_panel(state):
@@ -722,6 +793,83 @@ def build_container_panel(state):
         ]},
     ]}
 
+def _build_one_container(s):
+    inner = []
+    # Author
+    if s.get("author_name"):
+        a_txt = s["author_name"]
+        if s.get("author_url"): a_txt = f"[{a_txt}]({s['author_url']})"
+        if s.get("author_icon"):
+            inner.append({"type": 9, "components": [{"type": 10, "content": f"-# {a_txt}"}], "accessory": {"type": 11, "media": {"url": s["author_icon"]}}})
+        else:
+            inner.append({"type": 10, "content": f"-# {a_txt}"})
+    # Image (with spoiler)
+    if s.get("image_url"):
+        item = {"media": {"url": s["image_url"]}}
+        if s.get("image_spoiler"): item["spoiler"] = True
+        inner.append({"type": 12, "items": [item]})
+    # Title + Description
+    txt = ""
+    if s.get("title"):
+        if s.get("title_url"):
+            txt += f"## [{s['title']}]({s['title_url']})\n"
+        else:
+            txt += f"## {s['title']}\n"
+    if s.get("description"): txt += s["description"]
+    if txt:
+        if s.get("thumbnail_url"):
+            inner.append({"type": 9, "components": [{"type": 10, "content": txt}], "accessory": {"type": 11, "media": {"url": s["thumbnail_url"]}}})
+        else:
+            inner.append({"type": 10, "content": txt})
+    # Fields (inline support: group consecutive inline fields)
+    fields = s.get("fields", [])
+    i = 0
+    while i < len(fields):
+        f = fields[i]
+        if f.get("inline"):
+            # group consecutive inline fields
+            group = [f]
+            while i + 1 < len(fields) and fields[i + 1].get("inline"):
+                i += 1; group.append(fields[i])
+            cols = " · ".join(f"**{g['name']}** {g.get('value', '')}" for g in group)
+            inner.append({"type": 10, "content": cols})
+        else:
+            inner.append({"type": 10, "content": f"**{f['name']}**\n{f.get('value', '')}"})
+        i += 1
+
+    for part in s.get("container_parts", []):
+        pt = part.get("_type")
+        if pt == "text":
+            inner.append({"type": 10, "content": part.get("content", "")})
+        elif pt == "image":
+            inner.append({"type": 12, "items": [{"media": {"url": part.get("url", "")}}]})
+        elif pt == "separator":
+            inner.append({"type": 14, "divider": True, "spacing": 1})
+        elif pt == "button":
+            btn = {"type": 2, "style": int(part.get("style", 5)), "label": part.get("label", "Button")}
+            if part.get("url"): btn["url"] = part["url"]
+            else: btn["custom_id"] = f"ce_custom_{uuid.uuid4().hex[:8]}"
+            if part.get("emoji_id"):
+                btn["emoji"] = {"id": part["emoji_id"], "name": part.get("emoji_name", "emoji")}
+            inner.append({"type": 1, "components": [btn]})
+
+    if s.get("footer_text") or s.get("timestamp") or s.get("footer_icon"):
+        inner.append({"type": 14, "divider": True, "spacing": 1})
+        ft_parts = []
+        if s.get("footer_text"): ft_parts.append(s["footer_text"])
+        if s.get("timestamp"): ft_parts.append(datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M UTC"))
+        ft_text = " · ".join(ft_parts) if ft_parts else ""
+        if s.get("footer_icon") and ft_text:
+            inner.append({"type": 9, "components": [{"type": 10, "content": f"-# {ft_text}"}], "accessory": {"type": 11, "media": {"url": s["footer_icon"]}}})
+        elif ft_text:
+            inner.append({"type": 10, "content": f"-# {ft_text}"})
+
+    if not inner: return None
+    container = {"type": 17, "components": inner}
+    if s.get("color", 0x5865F2) != 0x000001:
+        container["accent_color"] = s.get("color", 0x5865F2)
+    return container
+
 def build_final_embed(state):
     if state.get("json_mode") and state.get("raw_json"):
         raw = state["raw_json"]
@@ -734,7 +882,9 @@ def build_final_embed(state):
                     inner = []
                     if e.get("image"): inner.append({"type": 12, "items": [{"media": {"url": e["image"]["url"]}}]})
                     txt = ""
-                    if e.get("title"): txt += f"## {e['title']}\n"
+                    if e.get("title"):
+                        if e.get("url"): txt += f"## [{e['title']}]({e['url']})\n"
+                        else: txt += f"## {e['title']}\n"
                     if e.get("description"): txt += e["description"]
                     if txt: inner.append({"type": 10, "content": txt})
                     if e.get("fields"):
@@ -755,65 +905,38 @@ def build_final_embed(state):
                         inner.append({"type": 10, "content": f"-# {ts_raw}"})
                     if e.get("footer"):
                         inner.append({"type": 14, "divider": True, "spacing": 1})
-                        inner.append({"type": 10, "content": f"-# {e['footer'].get('text','')}" })
+                        ft_txt = e["footer"].get("text", "")
+                        if e["footer"].get("icon_url"):
+                            inner.append({"type": 9, "components": [{"type": 10, "content": f"-# {ft_txt}"}], "accessory": {"type": 11, "media": {"url": e["footer"]["icon_url"]}}})
+                        else:
+                            inner.append({"type": 10, "content": f"-# {ft_txt}"})
                     col = e.get("color", 0x5865F2)
                     comps.append({"type": 17, "accent_color": col, "components": inner or [{"type": 10, "content": "*(empty embed)*"}]})
-                return {"flags": COMPONENTS_V2_FLAG, "components": comps}
-            if "components" in msg: return {"flags": COMPONENTS_V2_FLAG, "components": msg["components"]}
+                result = {"flags": COMPONENTS_V2_FLAG, "components": comps}
+                if state.get("message_content"):
+                    result["content"] = state["message_content"]
+                return result
+            if "components" in msg:
+                result = {"flags": COMPONENTS_V2_FLAG, "components": msg["components"]}
+                if state.get("message_content"): result["content"] = state["message_content"]
+                return result
         return None
 
-    inner = []
-    # Author
-    if state.get("author_name"):
-        a_txt = state["author_name"]
-        if state.get("author_url"): a_txt = f"[{a_txt}]({state['author_url']})"
-        if state.get("author_icon"):
-            inner.append({"type": 9, "components": [{"type": 10, "content": f"-# {a_txt}"}], "accessory": {"type": 11, "media": {"url": state["author_icon"]}}})
-        else:
-            inner.append({"type": 10, "content": f"-# {a_txt}"})
-    # Image
-    if state.get("image_url"): inner.append({"type": 12, "items": [{"media": {"url": state["image_url"]}}]})
-    # Title + Description
-    txt = ""
-    if state.get("title"): txt += f"## {state['title']}\n"
-    if state.get("description"): txt += state["description"]
-    if txt:
-        if state.get("thumbnail_url"):
-            inner.append({"type": 9, "components": [{"type": 10, "content": txt}], "accessory": {"type": 11, "media": {"url": state["thumbnail_url"]}}})
-        else:
-            inner.append({"type": 10, "content": txt})
-    # Fields
-    for f in state.get("fields", []):
-        inner.append({"type": 10, "content": f"**{f['name']}**\n{f.get('value', '')}"})
+    # Build all embeds (current + saved)
+    all_embed_states = list(state.get("embeds", []))
+    current = {k: v for k, v in state.items() if k not in ("embeds", "current_embed", "channel_id", "webhook_name", "webhook_avatar", "lang", "message_content")}
+    all_embed_states.append(current)
 
-    for part in state.get("container_parts", []):
-        pt = part.get("_type")
-        if pt == "text":
-            inner.append({"type": 10, "content": part.get("content", "")})
-        elif pt == "image":
-            inner.append({"type": 12, "items": [{"media": {"url": part.get("url", "")}}]})
-        elif pt == "separator":
-            inner.append({"type": 14, "divider": True, "spacing": 1})
-        elif pt == "button":
-            btn = {"type": 2, "style": int(part.get("style", 5)), "label": part.get("label", "Button")}
-            if part.get("url"): btn["url"] = part["url"]
-            else: btn["custom_id"] = f"ce_custom_{uuid.uuid4().hex[:8]}"
-            if part.get("emoji_id"):
-                btn["emoji"] = {"id": part["emoji_id"], "name": part.get("emoji_name", "emoji")}
-            inner.append({"type": 1, "components": [btn]})
+    containers = []
+    for s in all_embed_states:
+        c = _build_one_container(s)
+        if c: containers.append(c)
 
-    if state.get("footer_text") or state.get("timestamp"):
-        inner.append({"type": 14, "divider": True, "spacing": 1})
-        ft_parts = []
-        if state.get("footer_text"): ft_parts.append(state["footer_text"])
-        if state.get("timestamp"): ft_parts.append(datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M UTC"))
-        inner.append({"type": 10, "content": f"-# {' · '.join(ft_parts)}"})
-
-    if not inner: return None
-    container = {"type": 17, "components": inner}
-    if state["color"] != 0x000001:
-        container["accent_color"] = state["color"]
-    return {"flags": COMPONENTS_V2_FLAG, "components": [container]}
+    if not containers: return None
+    result = {"flags": COMPONENTS_V2_FLAG, "components": containers}
+    if state.get("message_content"):
+        result["content"] = state["message_content"]
+    return result
 
 async def _ce_text_submit(interaction):
     uid = interaction.user.id; state = embed_builders.get(uid)
@@ -822,8 +945,10 @@ async def _ce_text_submit(interaction):
         for c in row.get("components", []):
             cid = c.get("custom_id", ""); val = (c.get("value") or "").strip() or None
             if cid == "ce_f_title": state["title"] = val
+            elif cid == "ce_f_title_url": state["title_url"] = val
             elif cid == "ce_f_desc": state["description"] = val
             elif cid == "ce_f_footer": state["footer_text"] = val
+            elif cid == "ce_f_footer_icon": state["footer_icon"] = val
     await ia_update(interaction, build_embed_builder(state))
 
 async def _ce_image_submit(interaction):
@@ -834,6 +959,7 @@ async def _ce_image_submit(interaction):
             cid = c.get("custom_id", ""); val = (c.get("value") or "").strip() or None
             if cid == "ce_f_image": state["image_url"] = val
             elif cid == "ce_f_thumb": state["thumbnail_url"] = val
+            elif cid == "ce_f_spoiler": state["image_spoiler"] = (val or "").lower() in ("yes", "true", "si", "sí", "1")
     await ia_update(interaction, build_embed_builder(state))
 
 async def _ce_json_submit(interaction):
@@ -884,6 +1010,15 @@ async def _ce_profile_submit(interaction):
             cid = c.get("custom_id", ""); val = (c.get("value") or "").strip() or None
             if cid == "ce_f_wh_name": state["webhook_name"] = val
             elif cid == "ce_f_wh_avatar": state["webhook_avatar"] = val
+    await ia_update(interaction, build_embed_builder(state))
+
+async def _ce_msgcontent_submit(interaction):
+    uid = interaction.user.id; state = embed_builders.get(uid)
+    if not state: await ia_respond(interaction, {"content": "─ Session expired.", "flags": 64}); return
+    for row in (interaction.data or {}).get("components", []):
+        for c in row.get("components", []):
+            if c.get("custom_id") == "ce_f_msgcontent":
+                state["message_content"] = (c.get("value") or "").strip() or None
     await ia_update(interaction, build_embed_builder(state))
 
 async def _ce_ct_text_submit(interaction):
@@ -1496,6 +1631,7 @@ async def on_interaction(interaction: discord.Interaction):
         elif cid == "ce_ct_btn_modal": await _ce_ct_btn_submit(interaction)
         elif cid == "ce_author_modal": await _ce_author_submit(interaction)
         elif cid == "ce_field_modal": await _ce_field_submit(interaction)
+        elif cid == "ce_msgcontent_modal": await _ce_msgcontent_submit(interaction)
         return
 
     if interaction.type != discord.InteractionType.component: return
@@ -1546,15 +1682,23 @@ async def on_interaction(interaction: discord.Interaction):
             if vals: state["channel_id"] = int(vals[0])
             await ia_update(interaction, build_embed_builder(state)); return
 
+        if action == "lang":
+            vals = (interaction.data or {}).get("values", ["en"])
+            state["lang"] = vals[0] if vals else "en"
+            await ia_update(interaction, build_embed_builder(state)); return
+
         if action == "text":
             comps = [{"type": 1, "components": [{"type": 4, "custom_id": "ce_f_title", "label": "Title", "style": 1, "max_length": 256, "required": False, "value": state.get("title") or "", "placeholder": "Embed title"}]},
+                     {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_title_url", "label": "Title URL (clickable)", "style": 1, "max_length": 500, "required": False, "value": state.get("title_url") or "", "placeholder": "https://example.com"}]},
                      {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_desc", "label": "Description", "style": 2, "max_length": 4000, "required": False, "value": state.get("description") or "", "placeholder": "Embed description (supports markdown)"}]},
-                     {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_footer", "label": "Footer", "style": 1, "max_length": 200, "required": False, "value": state.get("footer_text") or "", "placeholder": "Footer text"}]}]
+                     {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_footer", "label": "Footer Text", "style": 1, "max_length": 200, "required": False, "value": state.get("footer_text") or "", "placeholder": "Footer text"}]},
+                     {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_footer_icon", "label": "Footer Icon URL", "style": 1, "max_length": 500, "required": False, "value": state.get("footer_icon") or "", "placeholder": "https://example.com/icon.png"}]}]
             await ia_modal(interaction, "ce_text_modal", "Edit Embed Text", comps); return
 
         if action == "image":
             comps = [{"type": 1, "components": [{"type": 4, "custom_id": "ce_f_image", "label": "Image URL", "style": 1, "max_length": 500, "required": False, "value": state.get("image_url") or "", "placeholder": "https://example.com/image.png"}]},
-                     {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_thumb", "label": "Thumbnail URL", "style": 1, "max_length": 500, "required": False, "value": state.get("thumbnail_url") or "", "placeholder": "https://example.com/thumb.png"}]}]
+                     {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_thumb", "label": "Thumbnail URL", "style": 1, "max_length": 500, "required": False, "value": state.get("thumbnail_url") or "", "placeholder": "https://example.com/thumb.png"}]},
+                     {"type": 1, "components": [{"type": 4, "custom_id": "ce_f_spoiler", "label": "Spoiler image? (yes/no)", "style": 1, "max_length": 3, "required": False, "value": "yes" if state.get("image_spoiler") else "no", "placeholder": "yes or no"}]}]
             await ia_modal(interaction, "ce_image_modal", "Add Images", comps); return
 
         if action == "author":
@@ -1579,6 +1723,34 @@ async def on_interaction(interaction: discord.Interaction):
 
         if action == "timestamp":
             state["timestamp"] = not state.get("timestamp", False)
+            await ia_update(interaction, build_embed_builder(state)); return
+
+        if action == "msgcontent":
+            comps = [{"type": 1, "components": [{"type": 4, "custom_id": "ce_f_msgcontent", "label": "Message Content (outside embed)", "style": 2, "max_length": 2000, "required": False, "value": state.get("message_content") or "", "placeholder": "Text before the embed (pings, context, etc.)"}]}]
+            await ia_modal(interaction, "ce_msgcontent_modal", "Message Content", comps); return
+
+        if action == "add_embed":
+            saved = {k: v for k, v in state.items() if k not in ("embeds", "current_embed", "channel_id", "webhook_name", "webhook_avatar", "lang", "message_content")}
+            state.setdefault("embeds", []).append(saved)
+            state["current_embed"] = len(state["embeds"])
+            for k in ("title", "title_url", "description", "image_url", "thumbnail_url", "image_spoiler", "footer_text", "footer_icon", "author_name", "author_icon", "author_url", "raw_json"):
+                state[k] = None
+            state["color"] = 0x5865F2; state["color_name"] = "Blurple"
+            state["json_mode"] = False; state["fields"] = []; state["container_parts"] = []; state["timestamp"] = False
+            await ia_update(interaction, build_embed_builder(state)); return
+
+        if action == "del_embed":
+            embeds = state.get("embeds", [])
+            cur = state.get("current_embed", 0)
+            if cur < len(embeds):
+                embeds.pop(cur)
+            if embeds:
+                restore = embeds.pop(-1)
+                state["current_embed"] = len(embeds)
+                for k, v in restore.items():
+                    state[k] = v
+            else:
+                state["current_embed"] = 0
             await ia_update(interaction, build_embed_builder(state)); return
 
         if action == "container":
