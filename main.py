@@ -1854,10 +1854,12 @@ async def on_interaction(interaction: discord.Interaction):
         rules_msg_id = parts_l[1] if len(parts_l) > 1 else ""
         await ia_update(interaction, build_rules_lang_prompt(rules_msg_id, current_lang=lang))
         if rules_msg_id:
-            edit_url = f"{DISCORD_API_BASE}/channels/{CHANNEL_RULES}/messages/{rules_msg_id}"
-            headers = {"Authorization": f"Bot {DISCORD_BOT_TOKEN}", "Content-Type": "application/json"}
-            async with aiohttp.ClientSession() as s:
-                await s.patch(edit_url, json=build_rules_payload(lang), headers=headers)
+            # Webhook messages must be edited via webhook endpoint, not bot endpoint
+            wh_id, wh_token = await get_or_create_webhook(CHANNEL_RULES)
+            if wh_id and wh_token:
+                edit_url = f"{DISCORD_API_BASE}/webhooks/{wh_id}/{wh_token}/messages/{rules_msg_id}"
+                async with aiohttp.ClientSession() as s:
+                    await s.patch(edit_url, json=build_rules_payload(lang), headers={"Content-Type": "application/json"})
         return
     if cid.startswith("rlang_noop"):
         await ia_defer(interaction); return
